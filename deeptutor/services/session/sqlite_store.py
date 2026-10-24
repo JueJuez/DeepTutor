@@ -3582,7 +3582,7 @@ class SQLiteSessionStore:
                 item = {**item, "attempt_count": count, "hints_used": hints_used}
                 attempt = {**attempt, "attempt_count": count, "hints_used": hints_used}
             latest = conn.execute(
-                "SELECT occurred_at, attempt_id FROM assessment_attempts "
+                "SELECT occurred_at, attempt_id, assessment_json FROM assessment_attempts "
                 "WHERE origin_type = ? AND origin_ref = ? AND turn_id = ? AND question_id = ? "
                 "ORDER BY occurred_at DESC, attempt_id DESC LIMIT 1",
                 (origin_type, origin_ref, turn_id, question_id),
@@ -3594,6 +3594,23 @@ class SQLiteSessionStore:
             # A retry of an already-stored attempt never reaches this line
             # (the duplicate-id branch above returns first).
             is_latest = latest is None or occurred_at >= float(latest["occurred_at"])
+            # Mastery delivery can arrive out of order, even with equal or
+            # backwards wall clocks. Source commit sequence owns this card.
+            if attempt.get("projection_stream") and int(attempt.get("projection_sequence") or 0):
+                prior_rows = conn.execute(
+                    "SELECT assessment_json FROM assessment_attempts WHERE origin_type = ? "
+                    "AND origin_ref = ? AND turn_id = ? AND question_id = ?",
+                    (origin_type, origin_ref, turn_id, question_id),
+                ).fetchall()
+                prior_sequences = [
+                    int(prior.get("projection_sequence") or 0)
+                    for row in prior_rows
+                    if (prior := _json_loads(row["assessment_json"], {})).get("projection_stream")
+                    == attempt["projection_stream"]
+                ]
+                is_latest = not prior_sequences or int(attempt["projection_sequence"]) > max(
+                    prior_sequences
+                )
             conn.execute(
                 """
                 INSERT INTO assessment_attempts (

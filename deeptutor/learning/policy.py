@@ -102,7 +102,9 @@ def visual_achievements(progress: LearningProgress, kp_id: str) -> list[str]:
             and event.result == "correct"
             and event.visual_context.get("task")
             and event.visual_context.get("key_status") == "verified"
-            and not event.hints_used
+            # Only evidence that *captured* "no hints" proves independence;
+            # legacy unknown (None) evidence proves nothing either way.
+            and event.hints_used == 0
         }
     )
 
@@ -114,12 +116,17 @@ def learning_stage(progress: LearningProgress, kp_id: str) -> str:
         if item.knowledge_point_id == kp_id and not item.voided
     ]
     evidence = [item for item in progress.learning_evidence if item.knowledge_point_id == kp_id]
-    if any(item.independent and item.is_correct for item in attempts) or any(
-        item.assessment_type == "qualitative" and item.result == "correct" and not item.hints_used
+    # "Independently demonstrated" needs a *captured* no-assist record: an
+    # attempt whose independence was never recorded (None), or qualitative
+    # evidence with unknown hints, must not be upgraded by a reload or repair.
+    if any(item.independent is True and item.is_correct for item in attempts) or any(
+        item.assessment_type == "qualitative" and item.result == "correct" and item.hints_used == 0
         for item in evidence
     ):
         return "independently_demonstrated"
-    if any(not item.independent for item in attempts) or any(item.hints_used for item in evidence):
+    if any(item.independent is False for item in attempts) or any(
+        item.hints_used for item in evidence
+    ):
         return "practiced_with_help"
     if attempts or evidence:
         return "practiced_not_demonstrated"
@@ -164,10 +171,11 @@ def display_mastery(progress: LearningProgress, kp: KnowledgePoint) -> float:
 
     A qualitative pass whose recorded evidence used hints is displayed through
     ``mastery_levels`` instead, matching :func:`learning_stage`, which refuses
-    "independently demonstrated" to hinted evidence."""
+    "independently demonstrated" to hinted evidence — and to evidence whose
+    assist conditions were never captured (unknown is not "no hints")."""
     if kp.type in QUALITATIVE_TYPES and progress.qualitative_mastery.get(kp.id):
         if not any(
-            item.assessment_type == "qualitative" and item.hints_used
+            item.assessment_type == "qualitative" and item.hints_used != 0
             for item in progress.learning_evidence
             if item.knowledge_point_id == kp.id
         ):

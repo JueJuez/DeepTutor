@@ -154,6 +154,15 @@ async def lifespan(app: FastAPI):
         )
 
     try:
+        from deeptutor.learning.notebook_recovery import reconcile_mastery_notebook
+
+        recovered, failed = await reconcile_mastery_notebook()
+        if recovered or failed:
+            logger.info("Mastery Notebook recovery: recovered=%s failed=%s", recovered, failed)
+    except Exception:
+        logger.exception("Failed to reconcile Mastery Notebook at startup")
+
+    try:
         from deeptutor.learning.assessment import reconcile_linked_assessments
 
         recovered, failed = await reconcile_linked_assessments()

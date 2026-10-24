@@ -192,7 +192,9 @@ class TestLearningEvidence:
         assert ev.assessment_type == "quiz"
         assert ev.result == "incorrect"
         assert ev.quality is None
-        assert ev.hints_used == 0
+        # Bare evidence carries no assist record: None means "not captured",
+        # never "captured: no hints" (docs 9.6 R4).
+        assert ev.hints_used is None
         assert ev.attempt_count == 1
         assert ev.session_id == ""
         assert ev.turn_id == ""

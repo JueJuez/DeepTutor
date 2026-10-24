@@ -47,6 +47,7 @@ class TurnUsage:
         return {
             **totals,
             "total_calls": len(calls),
+            "total_attempts": sum(max(1, c.get("attempts") or 1) for c in calls),
             "cache_reported_calls": len(cache_calls),
             "cache_input_tokens": cache_input,
             "cache_hit_rate": (
@@ -69,6 +70,19 @@ class TurnUsage:
 current_usage: ContextVar[TurnUsage | None] = ContextVar("llm_turn_usage", default=None)
 # Prevent native adapter and factory instrumentation from counting the same call twice.
 measurement_active: ContextVar[bool] = ContextVar("llm_measurement_active", default=False)
+# Task-local count of *underlying* HTTP attempts inside one measured call.
+# Provider-internal compatibility retries (key rotation, Responses→chat
+# fallback, parameter-compat retries) each issue another HTTP request while
+# the upper layer sees a single measurement; they bump this counter so the
+# persisted record can tell one request from several (docs 9.6 R3).
+_http_attempts: ContextVar[int | None] = ContextVar("llm_http_attempts", default=None)
+
+
+def note_llm_http_attempt() -> None:
+    """Record one underlying HTTP attempt; no-op outside a measured call."""
+    current = _http_attempts.get()
+    if current is not None:
+        _http_attempts.set(current + 1)
 
 
 class CallMeasurement:
@@ -90,6 +104,7 @@ class CallMeasurement:
         self.first: float | None = None
         self.last: float | None = None
         self.output_chars = 0
+        self.http_attempts = 0
         # Estimate only when the API does not report usage; never persist message text.
         self.estimated_prompt_tokens = estimate_prompt_tokens(messages) if self.enabled else 0
         self.usage: Any = None
@@ -117,9 +132,14 @@ class CallMeasurement:
                 for tool in getattr(delta, "tool_calls", []) or []:
                     self.delta(getattr(getattr(tool, "function", None), "arguments", None))
 
-    def finish(self, response: Any = None, *, status: str = "completed") -> None:
+    def finish(self, response: Any = None, *, status: str = "completed") -> dict[str, Any] | None:
+        """Close the measurement; returns the record (or None when disabled).
+
+        Returning the record lets a budget guard settle from the same numbers
+        this meter just persisted, instead of re-deriving them.
+        """
         if self.finished or not self.enabled:
-            return
+            return None
         self.finished = True
         if response is not None:
             self.usage = getattr(response, "usage", None) or self.usage
@@ -148,6 +168,9 @@ class CallMeasurement:
             "provider": self.provider,
             "status": status,
             "estimated": estimated,
+            # Underlying HTTP attempts for this one measurement; providers that
+            # never bump the counter still made the one visible attempt.
+            "attempts": max(1, self.http_attempts),
             "duration_seconds": duration,
             "ttft_seconds": self.first - self.started if self.first is not None else None,
             "generation_seconds": generation if generation > 0 else None,
@@ -178,6 +201,7 @@ class CallMeasurement:
                 )
             except Exception:
                 logging.getLogger(__name__).exception("Unable to persist LLM usage")
+        return record
 
 
 async def measure_provider_call(call: Any, *, provider: str = "", **kwargs: Any) -> Any:
@@ -198,22 +222,26 @@ async def measure_provider_call(call: Any, *, provider: str = "", **kwargs: Any)
 
             kwargs[key] = wrap(callback)
     token = measurement_active.set(True)
+    attempts_token = _http_attempts.set(0)
     try:
         response = await call(**kwargs)
+        meter.http_attempts = _http_attempts.get() or 0
         meter.finish(
             response, status="failed" if response.finish_reason == "error" else "completed"
         )
         return response
     except BaseException:
+        meter.http_attempts = _http_attempts.get() or 0
         meter.finish(status="interrupted")
         raise
     finally:
+        _http_attempts.reset(attempts_token)
         measurement_active.reset(token)
 
 
 class MeasuredStream:
-    def __init__(self, stream: Any, meter: CallMeasurement):
-        self.stream, self.meter = stream, meter
+    def __init__(self, stream: Any, meter: CallMeasurement, budget: Any = None):
+        self.stream, self.meter, self.budget = stream, meter, budget
         self.iterator: Any = None
 
     def __getattr__(self, name: str) -> Any:
@@ -231,16 +259,22 @@ class MeasuredStream:
             self.meter.chunk(chunk)
             return chunk
         except StopAsyncIteration:
-            self.meter.finish()
+            record = self.meter.finish()
+            if self.budget is not None:
+                self.budget.settle(record, status="completed")
             raise
         except BaseException:
             self.meter.finish(status="interrupted")
+            if self.budget is not None:
+                self.budget.settle(status="interrupted")
             raise
         finally:
             measurement_active.reset(token)
 
     async def close(self) -> None:
         self.meter.finish(status="interrupted")
+        if self.budget is not None and not self.budget.settled:
+            self.budget.settle(status="interrupted")
         close = getattr(self.stream, "close", None) or getattr(self.stream, "aclose", None)
         if close:
             await close()
@@ -259,20 +293,49 @@ def instrument_client(client: Any, *, model: str = "", provider: str = "") -> An
     create = client.chat.completions.create
 
     async def measured_create(**kwargs: Any) -> Any:
+        from .budget import budget_call, current_source
+        from .exceptions import LLMBudgetError
+
+        resolved_model = str(kwargs.get("model") or model)
         meter = CallMeasurement(
-            model=kwargs.get("model") or model, provider=provider, messages=kwargs.get("messages")
+            model=resolved_model, provider=provider, messages=kwargs.get("messages")
         )
         token = measurement_active.set(True)
+        attempts_token = _http_attempts.set(0)
+        budget = None
         try:
+            budget = budget_call(
+                model=resolved_model,
+                provider=provider,
+                source=current_source("agentic"),
+                messages=kwargs.get("messages"),
+                max_output_tokens=kwargs.get("max_tokens"),
+            )
+            if budget is not None:
+                # A rejection here must not be metered as a provider failure:
+                # no provider traffic happened.
+                budget.reserve()
             result = await create(**kwargs)
+            meter.http_attempts = _http_attempts.get() or 0
             if kwargs.get("stream"):
-                return MeasuredStream(result, meter)
-            meter.finish(result)
+                return MeasuredStream(result, meter, budget)
+            record = meter.finish(result)
+            if budget is not None:
+                budget.settle(
+                    record if record is not None else getattr(result, "usage", None),
+                    status="completed",
+                )
             return result
+        except LLMBudgetError:
+            raise
         except BaseException:
+            meter.http_attempts = _http_attempts.get() or 0
             meter.finish(status="failed")
+            if budget is not None:
+                budget.settle(status="interrupted")
             raise
         finally:
+            _http_attempts.reset(attempts_token)
             measurement_active.reset(token)
 
     client.chat.completions.create = measured_create

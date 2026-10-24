@@ -518,7 +518,9 @@ def _resolved_quality(evidence: LearningEvidence) -> float:
     else:
         quality = 0.0
     if evidence.quality is None:
-        quality -= min(0.25, evidence.hints_used * 0.08)
+        # Unknown assist conditions (None) carry no scheduling penalty; the
+        # independence gates live in policy, not in interval quality.
+        quality -= min(0.25, (evidence.hints_used or 0) * 0.08)
         quality -= min(0.2, max(0, evidence.attempt_count - 1) * 0.05)
     return max(0.0, min(1.0, quality))
 

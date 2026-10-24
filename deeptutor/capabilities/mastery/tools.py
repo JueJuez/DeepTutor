@@ -355,13 +355,17 @@ async def _sync_mastery_attempt_to_question_bank(
     material_title: str = "",
     section_title: str = "",
     attempt_count: int = 1,
-    hints_used: int = 0,
+    hints_used: int | None = None,
     confidence: float | None = None,
     response_time: float | None = None,
     quality: float | None = None,
     result: str = "",
 ) -> None:
     if not session_id:
+        return
+    from deeptutor.learning.notebook_recovery import sync_durable_mastery
+
+    if await sync_durable_mastery(path_id, pending.question_id):
         return
     from deeptutor.learning.assessment import (
         AssessmentRecord,
@@ -421,9 +425,13 @@ async def _sync_qualitative_to_question_bank(
     material_title: str = "",
     quality: float | None = None,
     result: str = "",
-    hints_used: int = 0,
+    hints_used: int | None = None,
 ) -> None:
     if not session_id:
+        return
+    from deeptutor.learning.notebook_recovery import sync_durable_mastery
+
+    if await sync_durable_mastery(path_id, f"qual:{knowledge_point_id}"):
         return
     from deeptutor.learning.assessment import (
         AssessmentRecord,
@@ -839,6 +847,14 @@ class MasteryStatusTool(BaseTool):
                 },
                 meta_key="mastery_status",
             )
+        # CLI/SDK sessions also recover on a status read after restart,
+        # without asking the model to submit or grade the answer again.
+        try:
+            from deeptutor.learning.notebook_recovery import reconcile_mastery_notebook
+
+            await reconcile_mastery_notebook(learning_store=service.store, path_id=path_id)
+        except Exception:
+            logger.exception("Could not recover mastery Notebook on status read for %s", path_id)
         payload = {
             "status": "active",
             "path_revision": progress.version,
@@ -1768,7 +1784,7 @@ class MasteryGradeTool(BaseTool):
             material_title=progress.name,
             section_title=kp.name if kp else "",
             attempt_count=getattr(evidence, "attempt_count", 1) if evidence is not None else 1,
-            hints_used=getattr(evidence, "hints_used", 0) if evidence is not None else 0,
+            hints_used=getattr(evidence, "hints_used", None) if evidence is not None else None,
             confidence=getattr(evidence, "confidence", None) if evidence is not None else None,
             response_time=getattr(evidence, "response_time", None)
             if evidence is not None
@@ -1915,7 +1931,7 @@ class MasteryGradeTool(BaseTool):
                     material_title=progress.name,
                     section_title=kp.name if kp else "",
                     attempt_count=evidence.attempt_count if evidence else 1,
-                    hints_used=evidence.hints_used if evidence else 0,
+                    hints_used=evidence.hints_used if evidence is not None else None,
                     confidence=evidence.confidence if evidence else None,
                     response_time=evidence.response_time if evidence else None,
                     quality=evidence.quality if evidence else None,
@@ -2056,7 +2072,7 @@ class MasteryAssessTool(BaseTool):
             result=receipt["result"],
             quality={"correct": 1.0, "partial": 0.5, "incorrect": 0.0}[receipt["result"]],
             material_title=progress.name,
-            hints_used=evidence.hints_used if evidence else 0,
+            hints_used=evidence.hints_used if evidence is not None else None,
         )
         payload = {
             "knowledge_point_id": kp_id,

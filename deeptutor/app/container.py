@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import logging
 import os
 import socket
 from typing import Any
@@ -183,6 +184,14 @@ class ApplicationContainer:
                         recovery = TurnRecoveryService(self.coordinator, store)
                         self._recovery_services[scope_key] = recovery
                     await recovery.recover_once()
+                    try:
+                        from deeptutor.learning.notebook_recovery import reconcile_mastery_notebook
+
+                        await reconcile_mastery_notebook()
+                    except Exception:
+                        # Keep durable intents pending; a Notebook outage must
+                        # not prevent turn recovery in other scopes.
+                        logging.getLogger(__name__).exception("Mastery Notebook recovery failed")
             except WorkspaceError:
                 continue
 

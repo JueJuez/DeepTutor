@@ -157,6 +157,43 @@ class LLMParseError(LLMError):
         super().__init__(message, details=details, provider=provider)
 
 
+class LLMBudgetError(LLMError):
+    """The persistent budget store could not be consulted before a call.
+
+    Raised only when budget enforcement is enabled: a broken store cannot
+    verify the caps, so calls fail closed instead of silently spending.
+    """
+
+    error_code = "budget_store_unavailable"
+    retryable = False
+
+
+class LLMBudgetExceededError(LLMBudgetError):
+    """A configured request/token/cost cap would be exceeded by this call.
+
+    Never retried: the window state is durable, so an immediate retry would
+    hit the same verdict until the window resets or caps are raised.
+    """
+
+    error_code = "budget_exceeded"
+    retryable = False
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        reason: str,
+        usage: dict[str, object] | None = None,
+        limit: object = None,
+        model: str | None = None,
+    ):
+        super().__init__(message, details={"reason": reason, "usage": usage or {}, "limit": limit})
+        self.reason = reason
+        self.usage = usage or {}
+        self.limit = limit
+        self.model = model
+
+
 # Multi-provider specific aliases for mapping rules
 class ProviderQuotaExceededError(LLMRateLimitError):
     pass
@@ -181,4 +218,6 @@ __all__ = [
     "LLMParseError",
     "ProviderQuotaExceededError",
     "ProviderContextWindowError",
+    "LLMBudgetError",
+    "LLMBudgetExceededError",
 ]

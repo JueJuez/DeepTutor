@@ -19,6 +19,7 @@ _CALL_FIELDS = frozenset(
         "provider",
         "status",
         "estimated",
+        "attempts",
         "prompt_tokens",
         "completion_tokens",
         "total_tokens",

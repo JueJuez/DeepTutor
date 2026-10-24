@@ -136,7 +136,11 @@ class QuizAttempt(BaseModel):
     # attempts are excluded from mastery, errors, and spaced repetition.
     voided: bool = False
     void_reason: str = ""
-    independent: bool = True
+    # None = independence was not captured (records predating assist tracking,
+    # or paths that never see assistance info). Such attempts can neither
+    # prove nor disprove independent work and must stay "unknown" — they are
+    # never upgraded to independent by a reload, refresh or repair pass.
+    independent: bool | None = None
     visual_context: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
@@ -187,7 +191,10 @@ class LearningEvidence(BaseModel):
     assessment_type: Literal["quiz", "qualitative", "review"] = "quiz"
     result: Literal["correct", "incorrect", "partial"] = "incorrect"
     quality: float | None = None
-    hints_used: int = 0
+    # None = assist conditions were not captured (legacy evidence or paths
+    # outside the assist-tracking chains). 0 means "captured: no hints were
+    # used" and only that may count as an independent demonstration.
+    hints_used: int | None = None
     attempt_count: int = 1
     confidence: float | None = None
     learner_answer: str = ""

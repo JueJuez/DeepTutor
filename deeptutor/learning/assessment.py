@@ -104,7 +104,10 @@ class AssessmentRecord(BaseModel):
     mastery_path_id: str = ""
     knowledge_point_id: str = ""
     attempt_count: int = 1
-    hints_used: int = 0
+    # None = assist conditions were not captured (records predating the
+    # assist-tracking work). The notebook API boundary still renders an
+    # integer, but learning-side independence gates treat None as unknown.
+    hints_used: int | None = None
     confidence: float | None = None
     response_time: float | None = None
     quality: float | None = None
@@ -114,6 +117,12 @@ class AssessmentRecord(BaseModel):
     visual_context: dict[str, Any] = Field(default_factory=dict)
     resolved: bool | None = None
     attempt_id: str = ""
+    # Source commit order, independent of wall-clock or delivery order.
+    projection_stream: str = ""
+    projection_sequence: int = 0
+    correction_reason: str = ""
+    previous_result: dict[str, Any] = Field(default_factory=dict)
+    source_evidence: dict[str, Any] = Field(default_factory=dict)
 
     @field_validator("source", mode="before")
     @classmethod
@@ -180,11 +189,15 @@ class AssessmentRecord(BaseModel):
 
     @field_validator("hints_used", mode="before")
     @classmethod
-    def _hints_used(cls, value: object) -> int:
+    def _hints_used(cls, value: object) -> int | None:
+        # Missing/None stays unknown; junk values are unknown too — an
+        # unparseable hint count must not become "captured: no hints".
+        if value is None:
+            return None
         try:
             return max(0, int(value))  # type: ignore[arg-type,call-overload]
         except (TypeError, ValueError):
-            return 0
+            return None
 
     @model_validator(mode="after")
     def _require_identity(self) -> "AssessmentRecord":
@@ -418,7 +431,9 @@ def to_notebook_item(record: AssessmentRecord, diagnostics: list[str]) -> dict[s
         "mastery_path_id": mastery_path_id,
         "knowledge_point_id": knowledge_point_id,
         "attempt_count": record.attempt_count,
-        "hints_used": record.hints_used,
+        # Notebook API contract is an integer; unknown assist conditions
+        # surface as 0 here (display approximation, recorded as a boundary).
+        "hints_used": record.hints_used or 0,
         "confidence": record.confidence,
         "response_time": record.response_time,
         "quality": record.quality,

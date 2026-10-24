@@ -524,7 +524,9 @@ class LearningService:
         correctness = [
             0.5 if a.result == "partial" else a.is_correct
             for a in progress.quiz_attempts
-            if a.knowledge_point_id == kp_id and not a.voided and a.independent
+            # Unknown independence (None, legacy) is excluded: it cannot
+            # contribute to the independent-attempt mastery score.
+            if a.knowledge_point_id == kp_id and not a.voided and a.independent is True
         ]
         return compute_mastery(correctness)
 
@@ -2660,7 +2662,9 @@ class LearningService:
                 "difficulty": question.difficulty if question is not None else "",
                 "hints_used": max(
                     int(question is not None and not _question_independent(question)),
-                    int(any(not attempt.independent for attempt in attempts)),
+                    # Only attempts recorded as explicitly assisted count here;
+                    # unknown independence (None) is not "used help".
+                    int(any(attempt.independent is False for attempt in attempts)),
                 ),
                 "attempt_count": max(1, len(attempts)),
                 "session_id": session_id or (interaction.session_id if interaction else ""),

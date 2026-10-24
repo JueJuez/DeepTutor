@@ -188,8 +188,11 @@ class _KeyRotatingCompletions:
         self._clients = clients
 
     async def create(self, **kwargs: Any) -> Any:
+        from deeptutor.services.llm.metrics import note_llm_http_attempt
+
         attempts = max(2, len(self._key_pool))
         for attempt in range(attempts):
+            note_llm_http_attempt()
             api_key = self._key_pool.next()
             try:
                 return await self._clients[api_key].chat.completions.create(**kwargs)

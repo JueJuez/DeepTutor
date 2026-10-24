@@ -1222,6 +1222,15 @@ source of truth for billing and cache hits.
 
 The local [personal learning plan](docs/personal-learning-mvp.md) records the
 implemented offline safeguards, remaining development and live validation gaps.
+New Mastery answer and correction transactions retain a durable Notebook
+delivery snapshot. Interrupted delivery resumes at Web startup/background
+recovery or the next Mastery status read (including CLI/SDK), without model
+calls. Historical attempts without a captured delivery snapshot are not backfilled.
+An optional persistent LLM budget gate (`data/user/settings/llm_budget.json`,
+off by default) caps requests/tokens/est. cost per window with atomic
+in-flight reservations; state lives beside the usage ledger in
+`usage.sqlite3`. Records whose assist conditions predate capture keep an
+explicit "unknown" state and are never upgraded to independent passes.
 It also documents `scripts/learning_backup.py`, a maintenance tool for quiesced,
 selected single-user learning stores. Restore always targets a new directory;
 model settings and external knowledge bases are outside its backup scope.

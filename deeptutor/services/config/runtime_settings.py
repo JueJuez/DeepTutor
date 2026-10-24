@@ -324,6 +324,22 @@ DEFAULT_IMA_SETTINGS: dict[str, Any] = {
     "api_key": "",
 }
 
+# Persistent LLM budget gate (docs/personal-learning-mvp.md 9.6 R2). The gate
+# is off unless explicitly enabled; every cap of ``0`` means "no cap of this
+# kind". Costs come from the static pricing table, so a cost cap rejects
+# unpriced models rather than treating them as free. The state it enforces
+# (window epoch, in-flight reservations, settled usage) lives per owner in
+# ``usage.sqlite3`` beside the ledger — this file only carries the policy.
+DEFAULT_LLM_BUDGET_SETTINGS: dict[str, Any] = {
+    "version": 1,
+    "enabled": False,
+    "window_days": 30,
+    "max_requests": 0,
+    "max_total_tokens": 0,
+    "max_cost_usd": 0.0,
+    "reservation_ttl_minutes": 120,
+}
+
 # LlamaIndex local RAG engine. These are the retrieval + chunking knobs the
 # default engine exposes; they were previously hardcoded / env-only. Kept in
 # their own JSON file so the engine's detail page can read/write them.
@@ -692,6 +708,19 @@ class RuntimeSettingsService:
         _atomic_write_json(self.path_for("ima"), payload)
         return payload
 
+    def load_llm_budget(self) -> dict[str, Any]:
+        # No process-env overrides: the gate is a deliberate local policy, not
+        # a deployment knob, so a stray environment variable must not widen or
+        # narrow the caps an operator wrote into the JSON file.
+        return self._load_or_create(
+            "llm_budget", DEFAULT_LLM_BUDGET_SETTINGS, self._normalize_llm_budget
+        )
+
+    def save_llm_budget(self, settings: dict[str, Any]) -> dict[str, Any]:
+        payload = self._normalize_llm_budget({**DEFAULT_LLM_BUDGET_SETTINGS, **settings})
+        _atomic_write_json(self.path_for("llm_budget"), payload)
+        return payload
+
     def load_llamaindex(self, *, include_process_overrides: bool = True) -> dict[str, Any]:
         payload = self._load_or_create(
             "llamaindex",
@@ -756,6 +785,7 @@ class RuntimeSettingsService:
         self.load_mineru(include_process_overrides=False)
         self.load_pageindex(include_process_overrides=False)
         self.load_ima(include_process_overrides=False)
+        self.load_llm_budget()
         self.load_llamaindex(include_process_overrides=False)
         self.load_query_rewrite(include_process_overrides=False)
         self.load_graphrag()
@@ -1071,6 +1101,23 @@ class RuntimeSettingsService:
             "version": 1,
             "client_id": _string(settings.get("client_id")),
             "api_key": _string(settings.get("api_key")),
+        }
+
+    def _normalize_llm_budget(self, settings: dict[str, Any]) -> dict[str, Any]:
+        try:
+            max_cost = max(0.0, float(settings.get("max_cost_usd") or 0.0))
+        except (TypeError, ValueError):
+            max_cost = 0.0
+        return {
+            "version": 1,
+            "enabled": _coerce_bool(settings.get("enabled"), False),
+            "window_days": _coerce_clamped_int(settings.get("window_days"), 30, 1, 3650),
+            "max_requests": max(0, _coerce_int(settings.get("max_requests"), 0)),
+            "max_total_tokens": max(0, _coerce_int(settings.get("max_total_tokens"), 0)),
+            "max_cost_usd": max_cost,
+            "reservation_ttl_minutes": _coerce_clamped_int(
+                settings.get("reservation_ttl_minutes"), 120, 1, 1440
+            ),
         }
 
     def _apply_llamaindex_process_overrides(self, settings: dict[str, Any]) -> dict[str, Any]:
@@ -1629,6 +1676,10 @@ def load_document_parsing_settings() -> dict[str, Any]:
     return get_runtime_settings_service().load_document_parsing()
 
 
+def load_llm_budget_settings() -> dict[str, Any]:
+    return get_runtime_settings_service().load_llm_budget()
+
+
 def export_runtime_settings_to_env(*, overwrite: bool = True) -> dict[str, str]:
     return get_runtime_settings_service().export_environment(overwrite=overwrite)
 
@@ -1644,6 +1695,7 @@ __all__ = [
     "DEFAULT_INTEGRATIONS_SETTINGS",
     "DEFAULT_LIGHTRAG_SETTINGS",
     "DEFAULT_LIGHTRAG_SERVER_SETTINGS",
+    "DEFAULT_LLM_BUDGET_SETTINGS",
     "DEFAULT_LLAMAINDEX_SETTINGS",
     "DEFAULT_MINERU_SETTINGS",
     "DEFAULT_PAGEINDEX_SETTINGS",
@@ -1678,6 +1730,7 @@ __all__ = [
     "load_lightrag_settings",
     "load_lightrag_server_settings",
     "load_llamaindex_settings",
+    "load_llm_budget_settings",
     "load_mineru_settings",
     "load_query_rewrite_settings",
     "load_system_settings",

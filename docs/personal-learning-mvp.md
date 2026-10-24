@@ -1,6 +1,6 @@
 # PDF / EPUB 个人学习助手：验证与开发计划
 
-更新：2026-10-25。状态：O0 完成；O1/O2 仅有限交付，**仍有可离线开发的缺口，不是只剩真实测验**；O3 的单用户选定存储备份/恢复已实施并离线验证。最终整合检查见执行记录 10，剩余开发及新会话顺序见 9.6。B0/B1 真实模型闭环、B3 语义审核、B4 未覆盖项及 B5 延迟试用仍待验，不代表整体 MVP 完成。交付分支为 `codex/learning-offline`，本地隔离 worktree 为 `C:\Users\O1830\.codex\worktrees\learning-offline\DeepTutor`；本节随代码提交，提交与远端位置按第 10 节核对，原工作区数据和未提交计划保留。
+更新：2026-10-25。状态：O0 完成；O1/O2/O3 有界交付；R1 事务快照与自动补偿已实施并补完整合验证（1344 passed，见执行记录 13）；**R2 持久预算门禁、R3 底层 HTTP 计量、R4 旧辅助条件未知语义已实施并离线验证（见执行记录 13）**。预算门禁覆盖 factory 与 agentic 两个入口、默认关闭，未覆盖入口与费用估算边界逐项列明；O3 范围外项保留。B0/B1 真实模型闭环、B3 语义审核、B4 未覆盖项及 B5 延迟试用仍待验，不代表整体 MVP 完成。开发分支为 `codex/learning-offline`，本地隔离 worktree 为 `C:\Users\O1830\.codex\worktrees\learning-offline\DeepTutor`；R1–R4 改动（含测试与本文）已按用户指令提交并推送至 fork，提交与远端 SHA 以实际 Git 核对及 `fork/codex/learning-offline` tracking ref 为准，接手先核对、不重置或覆盖。原工作区数据和未提交计划保留。
 
 本文是本地个人学习扩展的需求、任务状态与新会话交接真源，由项目使用者和后续开发会话共同维护。每批结束更新本文中的证据、缺口和下一步；不另起重复任务清单。
 
@@ -79,10 +79,10 @@
 | 批次 | 工作与交付物 | 放行证据 | 当前状态 |
 |---|---|---|---|
 | B0 本机运行基线 | 检查 Python/Node/包管理器、端口、已有配置与数据；按本仓库安装启动；配置一个主模型；导入一个 PDF 和一个 EPUB | 原书可读，一次小范围模型交互可用；记录运行命令、依赖障碍、usage/未知项和原有缺陷 | 部分完成：安装启动、自制样本及真实 PDF/EPUB 导入定位已验证；主模型与真实交互待额度恢复 |
-| B1 现成闭环与差距核验 | 各选一个单元，走阅读→学习路径→独立回答→应用反馈→到期复习；逐项填第 3 节证据；读 scheduler、存储与相关测试 | 每项明确“复用／需修复／未知”；有实际复现和最小修复范围，不能仅引用 README | O1 已做真实 SQLite、接口和跨进程专项；仍有投影自动恢复缺口，真实单元闭环待模型就绪 |
+| B1 现成闭环与差距核验 | 各选一个单元，走阅读→学习路径→独立回答→应用反馈→到期复习；逐项填第 3 节证据；读 scheduler、存储与相关测试 | 每项明确“复用／需修复／未知”；有实际复现和最小修复范围，不能仅引用 README | O1 已做真实 SQLite、接口和跨进程专项；R1 新记录自动补偿已实施，无快照历史记录仍有边界，真实单元闭环待模型就绪 |
 | B2 来源与作答可信链 | 仅修复已确认的定位、版本、异常材料、答案隔离和原始作答保存问题 | 一个单元引用可靠；提交前网络响应无答案；刷新/重启恢复；错误与缺证据不能升级掌握 | 既有三项修复保留；O1 追加修复 reading 答案键隔离，恢复与并发专项离线通过；真实流程待验 |
-| B3 反馈、掌握与复习 | 补齐实际缺失的语义评估边界、辅助条件、覆核、事件幂等和日程一致性 | 正确/错误/部分正确/等价表达/不知道均经审核；并发与重复提交、覆核重算、时区测试通过 | O1 修复并发初始化、辅助条件投影并验证重复覆核；自动恢复/旧辅助条件追溯仍有缺口，语义质量待真实闭环 |
-| B4 费用与数据保护 | 补齐预算检查、失败恢复、导出删除、备份恢复和升级兼容中的实际缺口 | 已支出加在途预留约束新任务；重试有界；未知费用可见；恢复能找回作答与引用 | O2 修复无关图片降级重调与通用摘要未知价格；O3 提供选定存储恢复。硬预算/在途预留、全部入口计费、全量导出删除/升级兼容仍未完成 |
+| B3 反馈、掌握与复习 | 补齐实际缺失的语义评估边界、辅助条件、覆核、事件幂等和日程一致性 | 正确/错误/部分正确/等价表达/不知道均经审核；并发与重复提交、覆核重算、时区测试通过 | O1 修复并发初始化、辅助条件投影并验证重复覆核；R1 覆核自动补偿已实施；R4 将旧记录辅助条件收紧为显式"未知"、不被刷新/重试升级为独立通过。语义质量待真实闭环 |
+| B4 费用与数据保护 | 补齐预算检查、失败恢复、导出删除、备份恢复和升级兼容中的实际缺口 | 已支出加在途预留约束新任务；重试有界；未知费用可见；恢复能找回作答与引用 | O2 修复无关图片降级重调与通用摘要未知价格；O3 提供选定存储恢复。R2 已实现可配置的持久预算门禁（请求/Token/费用上限+在途预留+保守结算，默认关闭，覆盖 factory 与 agentic 入口，见执行记录 13）；R3 记录底层 HTTP 尝试数。未覆盖入口（fetch_models 等）、费用估算依赖静态价格表、全部导出删除/升级兼容仍未完成 |
 | B5 综合验收与个人试用 | 扩展样本，执行完整浏览器/接口流程、语义审核和真实延迟复测 | 技术、语义和个人试用分别给证据；未到至少 7 天复测日期保留待验证 | 未开始 |
 
 B0/B1 发现可小范围修复的启动问题可在当前批处理并记录，不必停下来逐项请求许可；涉及更换方向、明显扩大范围或增加未约定付费服务时再讨论。没有真实材料、模型或预算时继续源码审计、自制样本与离线检查，真实调用保留待验证，不用 mock 冒充。
@@ -133,7 +133,7 @@ B0/B1 发现可小范围修复的启动问题可在当前批处理并记录，�
 
 ## 8. 交接与执行记录
 
-当前交付：既有本机安装、PDF/EPUB 导入定位和三项 B2 修复保留；新增 O0–O3 离线实施与缺口见执行记录 6–10。代码、离线契约、真实调用、语义审核与个人试用分别记账；真实模型闭环和延迟试用未通过验收。第 9 节持续维护实施状态；以下早期记录中的“未提交”“仍运行旧代码”等描述是当时快照，接手时重新核对。
+当前交付：既有本机安装、PDF/EPUB 导入定位和三项 B2 修复保留；O0–O3 离线实施与缺口见执行记录 6–10；R1 事务快照/自动补偿见执行记录 12；R2 预算门禁、R3 底层计量、R4 旧辅助条件未知语义及 R1 整合补完见执行记录 13。代码、离线契约、真实调用、语义审核与个人试用分别记账；真实模型闭环和延迟试用未通过验收。第 9 节持续维护实施状态；以下早期记录中的“未提交”“仍运行旧代码”等描述是当时快照，接手时重新核对。
 
 ### 执行记录 2026-10-24（B0 会话）
 
@@ -296,6 +296,29 @@ B0/B1 发现可小范围修复的启动问题可在当前批处理并记录，�
 - 本轮重新执行仓库卫生、分支策略、改动 Python 文件 Ruff 0.16.0 check/format、staged diff 检查和 detect-secrets 1.5.0 扫描。扫描唯一命中是备份测试的字面值 `SYNTHETIC_SECRET`，仅该行加 allowlist 注释，未修改 baseline 或放宽全局规则。
 - 当前环境没有 pre_commit 模块，未执行 pre-commit --all-files；没有将检查缺席写成通过。除上述测试注释外，本轮不改功能代码；沿用执行记录 10 在本会话已实际跑出的整合/前端结果，未为文档提交重跑全套功能测试，未调用真实模型。提交和远端 SHA 以实际 Git 核对及本会话交付消息为准。
 
+### 执行记录 12 2026-10-25（R1，事务同步快照与自动补偿）
+
+- **现场与范围**：复用 `codex/learning-offline / 036b6bf7` 的现有 worktree；开工时干净，原工作区数据与未提交计划保留。不重启或切换原运行服务，不调用真实模型；本批只做 R1，不改教学提示词、评分标准或调度公式，未提交/push。
+- **根因与防线（RCG）**：学习 SQLite 先提交→工具 best-effort 写 Notebook→写入失败只记录日志→没有同事务交付凭据→进程退出后无法知道缺了哪次原作答/覆核。这是跨库事务边界的系统性缺口。保留两库，以 `mastery_notebook_outbox` 同事务存同步快照，引用原 `mastery_events.id`；快照写失败则原事务回滚，不能留下“作答成功但没有恢复凭据”的新状态。
+- **实现**：`learning/notebook_recovery.py` 从源事务捕获单题、分组子题、定性评估以及更正/作废快照，保留原始回答、来源证据快照、辅助条件、原 verdict 与更正理由；不为组父题额外记掌握。Notebook 成功提交后才标 applied；进程中断或确认写失败可安全重送，重复覆核保留审计事件但不增加相同 Notebook 作答。修正仍更新原作答所属的 session/turn 卡片，不因覆核发生在新 turn 而另起一张旧卡片副本。
+- **顺序保护**：`AssessmentRecord` 增加内部源流/事件序号及覆核来源字段；Notebook 最新投影依据同一源流的提交序号，避免并发补偿、同刻时间戳或时钟回拨造成旧事件覆盖新回答。不重算学习状态，不重新请求模型；原不可变 attempt 继续保留。
+- **自动入口**：Web lifespan 启动补偿；现有应用恢复周期在既有 user/workspace scope 内补偿；`mastery_status` 读取及原 grade/repair/qualitative 同步入口也投递快照，CLI/SDK 下次读取可恢复。失败保留 pending，不把成功保存的回答再次交给模型评分。恢复范围跟随现有存储 scope，不扩 O3 到多工作区备份。
+- **复现与验证**：新增真实临时双 SQLite、独立 Python 进程断点测试；无快照对照路径能保留 learning 作答但恢复后仍无 Notebook 卡片，明确证明旧边界。新路径覆盖作答/更正/作废写入中断→退出→重开→补偿、确认落盘失败后的重复/并发重送、旧事件乱序到达、其他题证据保留、事务回滚、状态读取、组题/定性作答及待同步快照备份恢复。子进程阻断 LLM client 并断言调用次数为 0。定向范围 `test_notebook_recovery.py + test_mastery_state_integrity.py + test_mastery_semantic_assessment.py + test_mastery_question_groups.py + test_learning_backup.py` 在新增最后一项乱序新回答用例前 **86 passed in 47.71s**（`data-r1-targeted-v3.log`）；最后完整计数待整合结束更新，不与分次结果相加。
+- **失败记录保留**：初轮 **3 failed / 2 passed** 发现新增字段误加在 outcome 而非 record 导致恢复丢序号/覆核元数据，已修正；追加范围 **2 failed / 71 passed** 发现重复作废多记一次 attempt，已加源事务内相同快照去重；后续 **1 failed / 74 passed** 是分组 fixture 的相同目标/相同题干违反既有契约，改为不同题干并保留生产约束。原日志 `data-r1-initial.log`、`data-r1-targeted.log`、`data-r1-targeted-v2.log` 均在 Git 忽略范围，没有删除测试放行。
+- **历史边界**：不回填本次变更前缺少交付快照的旧作答/覆核；旧 `grade_and_record` 等没有完整 interaction 的路径、无 session 的 SDK 记录不能据缺失字段造题或绑定对话。旧辅助条件仍按 R4 待审计，不能借刷新推定独立作答。已有旧工具重试兼容入口保留。新保障已实现不代表“所有历史 Notebook 投影已补齐”，O1 继续有限交付。
+- **检查与下一步**：Ruff 0.16.0 check/format、仓库卫生与 diff 检查定向执行；当前虚拟环境缺 `pre_commit`，未声称全仓 pre-commit 通过。本批无前端或公开 API schema 改动，不重复全站构建。整合检查进行中，完成后再更新准确计数；下一可开发单元是 R2 持久预算与在途预留，R3 底层计量、R4 历史证据及真实模型/语义/延迟验收继续保留。
+
+### 执行记录 13 2026-10-25（R1 整合补完；R2/R3/R4 离线实施）
+
+- **现场与范围**：复用同一 worktree 与 `codex/learning-offline / 036b6bf7`，R1 未提交改动全部保留。不重启原运行服务、不调用真实模型；本批完成 R2/R3/R4，不改教学提示词、评分标准与调度公式，未提交/push。
+- **R1 整合补完**：执行记录 12 遗留的整合检查已完成。此前 5 failed（tests/app 两文件）逐一定位为默认 pytest 临时目录路径超 Windows MAX_PATH（`pytest-of-unknown\...` 深层嵌套 >260 字符，workspace 写探针 `touch` FileNotFoundError）——环境限制而非 R1 回归：用短 `--basetemp` 复跑该 5 项单独通过，随后同范围全量 **1344 passed / 4 skipped / 0 failed in 288.72s**（`data-r1-integration-v2.log`）。未改产品代码与测试语义；本轮及后续跑 tests/app 时用短 basetemp 即可。
+- **R2 持久预算门禁（默认关闭）**：新增 `deeptutor/services/llm/budget.py` 与 `llm_budget.json` 设置（`enabled/window_days/max_requests/max_total_tokens/max_cost_usd/reservation_ttl_minutes`，0=不设限）。状态表（`budget_window/budget_reservations/budget_settled`）与 usage ledger 同库 `usage.sqlite3`（O3 备份自动覆盖，无提示词/密钥/正文，仅数值与标识）。预留用 SQLite `BEGIN IMMEDIATE` 原子完成"读当前用量→查上限→插入"；窗口到期滚动 epoch 并清扫旧在途；TTL 过期在途清扫为 `crashed`（仍计数）。保守结算：completed+usage→实际；completed 无 usage→chars/3.5 估算；failed/interrupted/crashed→预留上界（估算 prompt + 请求 max_tokens）；费用查静态价格表（`get_pricing(fallback=False)`），配置费用上限时未知价格拒绝（`unknown_price`）、窗口内有未知费用历史拒绝（`unknown_history_cost`）。挂钩点：services 层 `factory.complete/complete_with_config/stream`（逻辑调用级）与 agentic 层 `metrics.instrument_client`（SDK create 级，流式经 MeasuredStream 收尾结算）；预算拒绝抛 `LLMBudgetExceededError`（不重试），预算启用但存储不可用时 fail-closed。验收 `tests/services/llm/test_budget_gate.py` 13 项全绿：并发 8 争用只有预算内 3 个到达 provider、三类上限先拒后达、超时/未知 usage/真实子进程崩溃预留不免费、TTL 清扫仍计数、落盘失败保留 answer 且不重调模型（provider 次数=1、预留留 in-flight）、窗口滚动重置、agentic 非流/流两路径、默认关闭零触碰。
+- **R3 底层 HTTP 计量**：`metrics` 新增任务级尝试计数（`note_llm_http_attempt`），在两个漏斗点计数——`openai_compat_provider._create_with_key_rotation`（覆盖普通调用、key 轮换、Responses input-status 重试、Responses→chat 退路、response_format 丢弃重试、forced tool 重试的每次底层请求）与 agentic `_KeyRotatingCompletions.create`。`CallMeasurement` 记录新增 `attempts`（未 bump 记 1），随 ledger 行持久化（`_CALL_FIELDS`），`TurnUsage.summary` 新增 `total_attempts`。`tests/services/llm/test_http_attempt_metering.py` 5 项断言选定入口真实尝试数：普通 1、3-key 429 轮换 3、Responses→chat 退路 2、response_format 重试 2、agentic 轮换 2，且均为一次上层 measurement 对应多次底层请求并已落账。价格口径沿用 O2：budget/UsageTracker 未知为 null/unknown；旧 `LLMStats` 兼容默认价格保留为已记录边界，未扩充价格表。
+- **R4 旧辅助条件未知语义**：`LearningEvidence.hints_used` 与 `QuizAttempt.independent` 改 tri-state（默认 `None`=未捕获，0/`True` 才是"已捕获且无辅助"）；`AssessmentRecord.hints_used` 同步 None 化（解析失败→None，不伪造 0）。判定收紧：`learning_stage`（独立需 `is True`/`== 0`；"有辅助"需 `is False`/真值，未知落 `practiced_not_demonstrated`）、`visual_achievements`、`display_mastery`（未知降级到 mastery_levels）、`calculate_mastery`（未知不进独立分）、repair 的 hints 聚合（未知不伪造提示）、`scheduler._resolved_quality` 容忍 None、notebook recovery 快照回退问题自身辅助标记。notebook API 边界保持整数契约（`to_notebook_item` None→0；`NotebookEntryItem/UpsertEntryRequest` 与前端契约不变，无 web 改动）。验收 `deeptutor/learning/tests/test_legacy_assist_conditions.py` 8 项全绿：旧 JSON 无字段→存储往返/二次保存仍 None；旧定性通过不升 independent 且显示降级，显式 0 才独立；旧 quiz 尝试未知独立不升不降；视觉成就需显式 0 提示；junk 解析为 None；调度器不崩。
+- **受影响回归与整合**：learning+mastery 范围 **728 passed / 0 failed**；budget/metering 与既有 ledger/retry/auth/structured/usage 统计/CLI 定向 **98 passed**；最终受影响链路整合（执行记录 10 范围 + 新增三测试文件 + agentic client 消费方 + key rotation/responses fallback/metrics）**1566 passed / 2 skipped / 0 failed in 444.15s**（`data-r2r3r4-integration.log`）。改动 Python 文件 Ruff 0.16.0 check/format 全过（`deeptutor/` 全包 check 通过）。中途一次全量 `tests/services/llm/` 目录跑被中止（25 分钟无输出，疑个别文件网络等待；历史上各批均未整目录跑过），以定向受影响范围为准，未把该中止记为失败或通过。
+- **边界与未闭合**：预算门禁仅覆盖 factory 与 agentic create 两入口——`fetch_models` 等元数据调用、其他 SDK 直连未覆盖；费用为静态表估算非账单；预算无设置界面/CLI（直接编辑 JSON）；启用前零行为变化，**不据此放行付费任务，B4 预算项按"可配置防线已实现、全局硬预算未声称"记账**。R4 后旧记录在 notebook 卡片上仍显示 0 提示（整数契约边界，阶段/掌握判定已如实未知）。O3 范围外项（外部 KB、多 workspace、完整导出删除、升级兼容）维持 B4 未完成。真实模型闭环、语义审核、浏览器流程与 B5 延迟复测仍待额度恢复后按 9.5 执行。
+- **交付**：应用户指令，R1–R4 的代码、测试、README 与本文一并提交并推送至个人 fork 的 `codex/learning-offline`（不推上游或 main、不用 force）。提交前重跑了改动文件 Ruff 0.16.0 check/format、`scripts/check_repo_hygiene.py`、`git diff --check` 与 detect-secrets 1.5.0 扫描；当前虚拟环境缺 `pre_commit` 模块，未执行 pre-commit --all-files，未把检查缺席记为通过。本轮沿用本会话已实际跑出的整合/定向结果，未为提交重跑全套功能测试，未调用真实模型。提交与远端 SHA 以实际 Git 核对及本会话交付消息为准；不以提交代替验收，各批放行状态以本节记录为准。
+
 ## 9. 等待额度期间：离线可靠性优化实施计划
 
 ### 9.1 目标、边界与执行顺序
@@ -307,8 +330,8 @@ B0/B1 发现可小范围修复的启动问题可在当前批处理并记录，�
 | 顺序 | 对应原批次 | 交付物 | 当前状态 |
 |---|---|---|---|
 | O0 接手与可重复运行 | 所有批次的前置 | 现场快照、隔离工作区、可运行的定向测试入口 | 离线完成；见执行记录 6 |
-| O1 记录与复习一致性 | B1/B2/B3 的离线部分 | 真实存储/接口复现、必要的最小修复与回归防线 | 有界离线交付，仍有自动投影恢复等缺口；执行记录 7 |
-| O2 调用保护 | B4 的调用部分 | 有界调用策略、用量未知状态、预算覆盖范围与缺口记录 | 有限交付；鉴权降级重调/未知价格已修，硬预算仍缺，见执行记录 8 |
+| O1 记录与复习一致性 | B1/B2/B3 的离线部分 | 真实存储/接口复现、必要的最小修复与回归防线 | 有界离线交付；R1 新记录自动补偿已实施（执行记录 12），R4 收紧旧辅助条件为显式未知（执行记录 13）；旧无快照投影不回填的边界保留 |
+| O2 调用保护 | B4 的调用部分 | 有界调用策略、用量未知状态、预算覆盖范围与缺口记录 | 鉴权降级重调/未知价格已修（执行记录 8）；R2 实现可配置持久预算门禁+在途预留+保守结算（默认关闭，覆盖 factory/agentic 两入口，执行记录 13）；未覆盖入口与"非全局硬预算"边界见执行记录 13 |
 | O3 备份与恢复 | B4 的数据部分 | 最小本地备份恢复流程或脚本、隔离恢复验证 | 选定存储离线实现与隔离恢复通过，范围外项保留；见执行记录 9 |
 
 本轮不调教学提示词、语义评分标准和调度公式，不批量建题库、不生成整书、不接入新付费服务、不换主模型，也不扩到新的媒介或多用户功能。测试可使用自制题目和假 provider，但必须标记为离线契约验证，不能当作真实题目质量证据。
@@ -371,19 +394,21 @@ B0/B1 发现可小范围修复的启动问题可在当前批处理并记录，�
 
 ### 9.6 新会话剩余开发顺序（2026-10-25）
 
-用户已确认：本会话先更新文档、提交并 push，剩余实现交由新会话继续。**本节是第 9 节的续接，不新增平行任务清单；O1/O2 不改成完成。**
+前会话已更新文档、提交并 push；随后两个会话按用户指令续接：R1（事务快照/自动补偿）与 R2/R3/R4（预算门禁、底层计量、旧辅助条件未知语义）均已实施并离线验证，见执行记录 12、13。**本节是第 9 节的续接，不新增平行任务清单；O1/O2 的有界交付边界保留。** R1–R4 的离线契约已实现并有防线测试；下一阶段不是继续扩离线范围，而是等待额度恢复后按 9.5 做真实试用验收，或按下方”剩余小批”按需推进。
 
-| 顺序 | 剩余工作与入口 | 放行证据 |
-|---|---|---|
-| R1：先补 O1 自动补偿 | 核对 `capabilities/mastery/tools.py` 的 best-effort Notebook 同步、`learning/service.py` / `storage.py` 中已保存的 interaction/覆核事件与 `learning/assessment.py`。先复现“learning 已提交，Notebook 写入中断”，再复用既有事件/关联补偿；如必须补 outbox，须与原始作答/覆核同事务落盘，不另建学习引擎。 | 真实临时两库：正常作答和覆核各覆盖一次中断→退出 Python→重开→补偿；原始回答、原评估、更正理由可追踪，Notebook 与学习证据/掌握/复习一致。重复补偿和并发补偿不重复推进，旧事件不覆盖新回答，其他题证据保留，provider 调用次数为 0。未覆盖的历史记录明确列出。 |
-| R2：再补 O2 预算门禁 | 先画清 factory/provider/SDK 内部兼容重试的生效入口，沿用 runtime JSON 设置、usage ledger。补配置驱动的持久化调用前检查、原子在途预留和保守结算；默认不猜真实金额或价格、不启用付费任务。 | fake provider + 真实 SQLite：并发争用只有预算内请求到达 provider；达到已配置请求/Token/费用上限时拒绝新调用；超时/未知 usage 和崩溃后的 reservation 不被当成免费；重启后仍有效；结果已保存但后续落盘失败不重调模型。费用限制若仅覆盖部分入口须逐项标明，不能声称全局硬预算。 |
-| R3：闭合 O2 计量边界 | 记录 provider 内 key rotation、Responses/chat、参数兼容与凭据恢复实际 HTTP 尝试，关联请求标识与上层作答；核对旧 `LLMStats` 默认价格与所有未知费用展示。可与 R2 分成两个小批，不能用上层一次 measurement 代替底层多次请求。 | 对选定入口断言底层真实尝试数、provider 返回/估算/未知/失败状态和持久记录；未知不记 0 或默认便宜模型价格。模型价格表不在此时扩充；真实账单准确性仍待选定服务商后核验。 |
-| R4：整理无法追溯项与 O3 边界 | 旧辅助条件缺少证据时保留“未知”，不得追填独立作答或编造历史提示；核对新记录是否充分捕获。O3 的外部 KB、多 workspace、完整导出删除和升级兼容继续列在 B4，按实际试用需要另定小批。 | 新增记录的辅助条件真实落盘并进入展示；旧记录的未知状态不被刷新/重试改成独立通过。已有 O3 测试保持通过；没有扩大恢复范围的实现和隔离验证时不勾 B4 完成。 |
+| 顺序 | 剩余工作与入口 | 放行证据 | 当前状态 |
+| --- | --- | --- | --- |
+| R1：O1 自动补偿 | `learning/storage.py` 在源事务内保存 outbox 快照，`learning/notebook_recovery.py` 负责无模型投递；Web 启动/恢复周期、Mastery 状态读取及工具同步入口自动补偿。未捕获快照的历史作答/覆核不回填，详见执行记录 12。 | 已覆盖真实临时双库及作答、更正、作废各自跨进程恢复；原始回答、原评估、更正理由可追踪；重复/并发/确认失败补偿不重复推进，其他题证据保留，旧事件不覆盖新回答，provider 调用次数为 0。 | **已实施**：定向 86 passed；整合补跑 1344 passed / 4 skipped / 0 failed（此前 5 failed 为 tests/app 在默认 pytest 临时目录超 Windows MAX_PATH 的环境限制，短 basetemp 复跑通过，见执行记录 13）。不宣称所有历史投影已恢复。 |
+| R2：再补 O2 预算门禁 | 先画清 factory/provider/SDK 内部兼容重试的生效入口，沿用 runtime JSON 设置、usage ledger。补配置驱动的持久化调用前检查、原子在途预留和保守结算；默认不猜真实金额或价格、不启用付费任务。 | fake provider + 真实 SQLite：并发争用只有预算内请求到达 provider；达到已配置请求/Token/费用上限时拒绝新调用；超时/未知 usage 和崩溃后的 reservation 不被当成免费；重启后仍有效；结果已保存但后续落盘失败不重调模型。费用限制若仅覆盖部分入口须逐项标明，不能声称全局硬预算。 | **已实施（默认关闭）**：`services/llm/budget.py` + `llm_budget.json` 设置 + factory/stream 与 agentic `instrument_client` 两入口挂钩；13 项离线验收全绿（含真实子进程崩溃预留、并发争用 8 取 3、TTL 清扫、落盘失败不重调、窗口滚动、未知价格拒绝），见执行记录 13。未覆盖入口与边界逐项列明；启用与金额由用户配置后才生效，不据此放行付费任务。 |
+| R3：闭合 O2 计量边界 | 记录 provider 内 key rotation、Responses/chat、参数兼容与凭据恢复实际 HTTP 尝试，关联请求标识与上层作答；核对旧 `LLMStats` 默认价格与所有未知费用展示。可与 R2 分成两个小批，不能用上层一次 measurement 代替底层多次请求。 | 对选定入口断言底层真实尝试数、provider 返回/估算/未知/失败状态和持久记录；未知不记 0 或默认便宜模型价格。模型价格表不在此时扩充；真实账单准确性仍待选定服务商后核验。 | **已实施**：任务级 HTTP 尝试计数经两个漏斗点（`_create_with_key_rotation`、agentic `_KeyRotatingCompletions.create`）覆盖普通/key 轮换/Responses input-status 重试/Responses→chat 退路/response_format 丢弃重试；ledger 行新增 `attempts`、summary 新增 `total_attempts`；5 项断言测试全绿。价格沿用 O2 口径（fallback=False，未知为 null/unknown）；旧 `LLMStats` 兼容默认价格保留为已记录边界。 |
+| R4：整理无法追溯项与 O3 边界 | 旧辅助条件缺少证据时保留”未知”，不得追填独立作答或编造历史提示；核对新记录是否充分捕获。O3 的外部 KB、多 workspace、完整导出删除和升级兼容继续列在 B4，按实际试用需要另定小批。 | 新增记录的辅助条件真实落盘并进入展示；旧记录的未知状态不被刷新/重试改成独立通过。已有 O3 测试保持通过；没有扩大恢复范围的实现和隔离验证时不勾 B4 完成。 | **已实施**：`hints_used`/`independent` 改 tri-state（None=未捕获），learning_stage/visual_achievements/display_mastery/calculate_mastery/repair 聚合/scheduler 收紧判定；notebook API 边界保持整数契约不变；8 项验收测试全绿（含存储往返不回填、旧定性通过不升级）。O3 测试在整合范围保持通过；O3 范围外项继续留在 B4。 |
 
-R1/R2 是下一轮优先开发，不依赖恢复真实模型额度。每个可验收单元完成后更新本文件、保留故障样本并跑相关检查，再进入下一单元；不为让状态变绿删除用例、补造历史或自动放行付费调用。R1–R4 的开发与离线契约完成后，才可报告相应离线缺口关闭；真实 PDF/EPUB 学习闭环、语义审核与至少 7 天复测仍独立保留。
+**剩余小批（按需，非阻塞）**：① 预算门禁目前无设置界面/CLI，配置方式为直接编辑 `data/user/settings/llm_budget.json`（字段见执行记录 13）；真实试用前若需要界面再单独小批。② 预算未覆盖入口（`fetch_models` 等元数据调用、其他 SDK 直连）按需评估。③ O3 范围外项（外部 KB、多 workspace、完整导出删除、升级兼容）维持 B4 未完成，按实际试用需要另定。
+
+R1–R4 的开发与离线契约完成后，才可报告相应离线缺口关闭；真实 PDF/EPUB 学习闭环、语义审核与至少 7 天复测仍独立保留。本文件每批更新；不为让状态变绿删除用例、补造历史或自动放行付费调用。
 
 ## 10. 新会话可直接使用的指令
 
-**交付位置（2026-10-25）**：origin 为上游 `HKUDS/DeepTutor`，个人 fork remote 为 `fork`（`git@github.com:JueJuez/DeepTutor.git`）；本次用户授权将已实现的有限范围与本交接提交并推到 `fork/codex/learning-offline`，不推上游或 main。最新代码与本文在 `C:\Users\O1830\.codex\worktrees\learning-offline\DeepTutor`，本地分支 `codex/learning-offline`；以包含本节的提交及其后续提交为准，新会话用 `git status --short`、`git log -1 --oneline` 和 tracking ref 重新核对提交/推送结果。原工作区仍为 `main / cfb3e8d1`，只维护续接指针，原稿及数据保留；不要重置主工作区或重复实施已有修复。
+**交付位置（2026-10-25）**：origin 为上游 `HKUDS/DeepTutor`，个人 fork remote 为 `fork`（`git@github.com:JueJuez/DeepTutor.git`）。R1–R4 改动（代码、测试、README 与本文）已按用户指令提交并推送至 `fork/codex/learning-offline`；接手先用 `git status --short`、`git log -1 --oneline` 和 tracking ref 核对实际基线与未提交改动，保留现场成果。最新代码与本文在 `C:\Users\O1830\.codex\worktrees\learning-offline\DeepTutor`，本地分支 `codex/learning-offline`。原工作区仍为 `main / cfb3e8d1`，只维护续接指针，原稿及数据保留；不要重置主工作区或重复实施已有修复。后续提交/push 按该会话用户指令处理，不推上游或 main。
 
-> 请在现有隔离 worktree C:\Users\O1830\.codex\worktrees\learning-offline\DeepTutor 的 codex/learning-offline 分支续接 PDF/EPUB 个人学习助手。先读 AGENTS.md、CONTRIBUTING.md、本文执行记录 6–10 与 9.6，检查 HEAD/未提交改动和 fork tracking ref，复用现有工作区，不重做 O0 或已通过修复。O1/O2 尚未完成，也不只是剩真实测验：按 9.6 先做 R1 的 Mastery/覆核→Notebook 跨库失败自动补偿，再做 R2 持久预算/在途预留、R3 底层 HTTP 计量，R4 对不可追溯旧辅助条件保持未知；每批真实复现、最小实现、离线验证后更新同一文档。保护原工作区数据及未提交计划；不调用真实付费模型、不绕过额度或更换服务商，不扩教学提示词/评分/调度算法。O3 仅选定单用户存储恢复通过，范围外 B4 项仍保留。以后额度恢复并获真实试用授权，再按 9.5 核实服务商/模型/预算和运行代码，用 PDF、EPUB 各一个单元做完整学习链与语义审核，记录消耗，并保留至少 7 天延迟复测。当前授权是续接剩余开发；后续提交/push 按该会话用户指令处理。
+> 请在现有隔离 worktree C:\Users\O1830\.codex\worktrees\learning-offline\DeepTutor 的 codex/learning-offline 分支续接 PDF/EPUB 个人学习助手。先读 AGENTS.md、CONTRIBUTING.md、本文执行记录 13 与 9.6，必要时回看 6–12，用 git status --short、git log -1 --oneline 和 fork tracking ref 核对基线；R1–R4（事务快照补偿、预算门禁、HTTP 尝试计量、旧辅助条件 tri-state）已提交推送，不重做已通过修复。离线可开发范围（R1–R4）已完成并有防线测试；剩余小批见 9.6 末尾（预算设置界面、未覆盖入口、O3 范围外项），仅在用户要求时推进。用户模型额度恢复后，按 9.5 核实服务商/模型/预算与运行代码，先做一次小范围连接与交互，再用真实 PDF、EPUB 各一个单元验证完整学习链，审核全部题目/反馈和引用，记录消耗；预算门禁启用方式为编辑 data/user/settings/llm_budget.json（enabled 与各上限，见执行记录 13），默认关闭。保护原工作区数据及未提交计划；不调用真实付费模型、不绕过额度或更换服务商，不扩教学提示词/评分/调度算法。B4 范围外项与 B5 至少 7 天延迟复测继续保留。当前授权是续接剩余工作；提交/push 按该会话用户指令处理。

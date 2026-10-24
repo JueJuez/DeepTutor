@@ -228,11 +228,18 @@ class OpenAICompatProvider(LLMProvider):
         )
 
     async def _create_with_key_rotation(self, create, kwargs: dict[str, Any]) -> Any:
+        # Every underlying HTTP request in this provider funnels through here
+        # (plain create, key rotation, and each compatibility retry re-invokes
+        # it), so this is the single place to count real attempts (docs 9.6 R3).
+        from deeptutor.services.llm.metrics import note_llm_http_attempt
+
         if not self._key_pool:
+            note_llm_http_attempt()
             return await create(**kwargs)
         api_key = self._key_pool.next()
         attempts = max(2, len(self._key_pool))
         for attempt in range(attempts):
+            note_llm_http_attempt()
             request = dict(kwargs)
             headers = dict(request.get("extra_headers") or {})
             headers["Authorization"] = f"Bearer {api_key}"

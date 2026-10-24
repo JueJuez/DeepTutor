@@ -19,6 +19,7 @@ from deeptutor.services.provider_registry import (
     find_gateway,
 )
 
+from .budget import budget_call, current_source
 from .capabilities import supports_response_format, supports_vision
 from .config import LLMConfig, get_llm_config
 from .error_mapping import map_error
@@ -344,6 +345,29 @@ def _sanitize_call_kwargs(
     return extra_kwargs
 
 
+def _open_budget_guard(
+    *,
+    config: LLMConfig,
+    provider: LLMProvider,
+    provider_label: str,
+    messages: list[dict[str, Any]],
+    extra_kwargs: CallKwargs,
+    entry: str,
+) -> Any:
+    """Reserve budget for one logical call, or ``None`` when the gate is off.
+
+    ``reserve()`` raising blocks the call before any provider traffic.
+    """
+    max_output = extra_kwargs.get("max_tokens") or provider.generation.max_tokens
+    return budget_call(
+        model=config.model,
+        provider=provider_label or config.provider_name or config.binding,
+        source=current_source(entry),
+        messages=messages,
+        max_output_tokens=max_output,
+    )
+
+
 async def _complete_with_resolved_config(
     config: LLMConfig,
     provider_spec: Any,
@@ -383,29 +407,54 @@ async def _complete_with_resolved_config(
         else allow_image_fallback
     )
 
+    budget = _open_budget_guard(
+        config=config,
+        provider=provider,
+        provider_label=capability_binding,
+        messages=request_messages,
+        extra_kwargs=extra_kwargs,
+        entry="factory.complete",
+    )
+    if budget is not None:
+        budget.reserve()
     try:
-        response = await provider.chat_with_retry(
-            messages=request_messages,
-            model=config.model,
-            reasoning_effort=config.reasoning_effort,
-            retry_delays=retry_delays,
-            allow_image_fallback=image_fallback_enabled,
-            **extra_kwargs,
-        )
-    except Exception as exc:
-        raise map_error(exc, provider=config.provider_name) from exc
+        try:
+            response = await provider.chat_with_retry(
+                messages=request_messages,
+                model=config.model,
+                reasoning_effort=config.reasoning_effort,
+                retry_delays=retry_delays,
+                allow_image_fallback=image_fallback_enabled,
+                **extra_kwargs,
+            )
+        except Exception as exc:
+            raise map_error(exc, provider=config.provider_name) from exc
 
-    if response.finish_reason == "error":
-        raise map_error(
-            RuntimeError(response.content or "LLM request failed"), provider=config.provider_name
-        )
-    # Provider adapters keep hidden reasoning in ``reasoning_content``.  A
-    # few gateways duplicate that field into ``content`` when no visible
-    # answer is present; never let that duplicate become user-facing text.
-    if response.content and response.reasoning_content:
-        if response.content == response.reasoning_content:
-            return ""
-    return response.content or ""
+        if response.finish_reason == "error":
+            if budget is not None:
+                budget.settle(status="failed")
+            raise map_error(
+                RuntimeError(response.content or "LLM request failed"),
+                provider=config.provider_name,
+            )
+        if budget is not None:
+            budget.settle(
+                response.usage,
+                status="completed",
+                output_chars=len(response.content or ""),
+            )
+        # Provider adapters keep hidden reasoning in ``reasoning_content``.  A
+        # few gateways duplicate that field into ``content`` when no visible
+        # answer is present; never let that duplicate become user-facing text.
+        if response.content and response.reasoning_content:
+            if response.content == response.reasoning_content:
+                return ""
+        return response.content or ""
+    finally:
+        # Cancellation between reserve and settle (or a raise above) must not
+        # leave a free in-flight reservation behind; settle is idempotent.
+        if budget is not None:
+            budget.settle(status="interrupted")
 
 
 async def complete(
@@ -584,30 +633,43 @@ async def stream(
     saw_output = False
     saw_content = False
     in_think_block = False
+    emitted_chars = 0
 
     async def _on_reasoning_delta(chunk: str) -> None:
-        nonlocal saw_output, in_think_block
+        nonlocal saw_output, in_think_block, emitted_chars
         if not chunk:
             return
         saw_output = True
+        emitted_chars += len(chunk)
         if not in_think_block:
             in_think_block = True
             await queue.put("<think>")
         await queue.put(chunk)
 
     async def _on_content_delta(chunk: str) -> None:
-        nonlocal saw_output, saw_content, in_think_block
+        nonlocal saw_output, saw_content, in_think_block, emitted_chars
         if not chunk:
             return
         saw_output = True
         saw_content = True
+        emitted_chars += len(chunk)
         if in_think_block:
             in_think_block = False
             await queue.put("</think>")
         await queue.put(chunk)
 
     async def _runner() -> None:
-        nonlocal saw_output, in_think_block
+        nonlocal saw_output, in_think_block, emitted_chars
+        budget = _open_budget_guard(
+            config=config,
+            provider=provider,
+            provider_label=capability_binding,
+            messages=request_messages,
+            extra_kwargs=extra_kwargs,
+            entry="factory.stream",
+        )
+        if budget is not None:
+            budget.reserve()
         try:
             response = await provider.chat_stream_with_retry(
                 messages=request_messages,
@@ -636,7 +698,17 @@ async def stream(
                 and response.content != response.reasoning_content
             ):
                 saw_output = True
+                emitted_chars += len(response.content)
                 await queue.put(response.content)
+            if budget is not None:
+                if response.finish_reason == "error":
+                    budget.settle(status="failed")
+                else:
+                    budget.settle(
+                        response.usage,
+                        status="completed",
+                        output_chars=emitted_chars,
+                    )
             if response.finish_reason == "error" and not saw_output:
                 await queue.put(
                     map_error(
@@ -647,6 +719,10 @@ async def stream(
         except Exception as exc:
             await queue.put(map_error(exc, provider=config.provider_name))
         finally:
+            # Covers cancellation and stream teardown alike; settle is a no-op
+            # once a terminal settle already ran.
+            if budget is not None:
+                budget.settle(status="interrupted")
             await queue.put(None)
 
     task = asyncio.create_task(_runner())

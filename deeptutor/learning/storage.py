@@ -504,6 +504,18 @@ class LearningStore:
                     CREATE INDEX IF NOT EXISTS idx_mastery_events_path_revision
                         ON mastery_events(path_id, revision, id);
 
+                    CREATE TABLE IF NOT EXISTS mastery_notebook_outbox (
+                        event_id INTEGER PRIMARY KEY REFERENCES mastery_events(id) ON DELETE CASCADE,
+                        path_id TEXT NOT NULL REFERENCES mastery_paths(path_id) ON DELETE CASCADE,
+                        question_id TEXT NOT NULL,
+                        assessment_json TEXT NOT NULL,
+                        applied INTEGER NOT NULL DEFAULT 0
+                    );
+                    CREATE INDEX IF NOT EXISTS idx_mastery_notebook_pending
+                        ON mastery_notebook_outbox(applied, event_id);
+                    CREATE INDEX IF NOT EXISTS idx_mastery_notebook_question
+                        ON mastery_notebook_outbox(path_id, question_id, event_id);
+
                     CREATE TABLE IF NOT EXISTS mastery_learning_evidence (
                         path_id TEXT NOT NULL REFERENCES mastery_paths(path_id) ON DELETE CASCADE,
                         ordinal INTEGER NOT NULL,
@@ -1217,7 +1229,7 @@ class LearningStore:
                         conn, path_id, tx.progress, previous_evidence=previous_evidence
                     )
                     for event_type, payload, session_id, turn_id in tx.events:
-                        conn.execute(
+                        event_cursor = conn.execute(
                             """
                             INSERT INTO mastery_events (
                                 path_id, revision, event_type, payload_json,
@@ -1234,6 +1246,50 @@ class LearningStore:
                                 now,
                             ),
                         )
+                        from deeptutor.learning.notebook_recovery import capture_notebook_assessment
+
+                        snapshot = capture_notebook_assessment(
+                            tx,
+                            event_type,
+                            payload,
+                            session_id=session_id,
+                            turn_id=turn_id,
+                            event_id=event_cursor.lastrowid,
+                            now=now,
+                        )
+                        if snapshot is not None:
+                            prior = conn.execute(
+                                "SELECT assessment_json FROM mastery_notebook_outbox "
+                                "WHERE path_id = ? AND question_id = ? ORDER BY event_id DESC LIMIT 1",
+                                (path_id, snapshot["question_id"]),
+                            ).fetchone()
+                            ignored = {
+                                "attempt_id",
+                                "created_at",
+                                "updated_at",
+                                "projection_sequence",
+                                "previous_result",
+                            }
+                            if prior is not None and {
+                                key: value
+                                for key, value in json.loads(prior["assessment_json"]).items()
+                                if key not in ignored
+                            } == {
+                                key: value for key, value in snapshot.items() if key not in ignored
+                            }:
+                                # A repeated repair is still audited in mastery_events,
+                                # but must not invent another learner submission.
+                                continue
+                            conn.execute(
+                                "INSERT INTO mastery_notebook_outbox "
+                                "(event_id, path_id, question_id, assessment_json) VALUES (?, ?, ?, ?)",
+                                (
+                                    event_cursor.lastrowid,
+                                    path_id,
+                                    snapshot["question_id"],
+                                    json.dumps(snapshot, ensure_ascii=False),
+                                ),
+                            )
                     committed_revision = revision
                     if tx.events:
                         committed_reason = tx.events[-1][0]
@@ -1263,6 +1319,34 @@ class LearningStore:
         with self.transaction(book_id, create=create) as tx:
             result = mutation(tx)
         return tx.progress, result
+
+    def pending_notebook_assessments(self, path_id: str = "") -> list[tuple[int, dict]]:
+        """Read committed delivery intents in source order, including after restart."""
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT event_id, assessment_json FROM mastery_notebook_outbox "
+                "WHERE applied = 0 AND (? = '' OR path_id = ?) ORDER BY event_id",
+                (path_id, path_id),
+            ).fetchall()
+        return [(row["event_id"], json.loads(row["assessment_json"])) for row in rows]
+
+    def mark_notebook_assessment_applied(self, event_id: int) -> None:
+        """Acknowledge delivery; duplicate acknowledgements are harmless."""
+        with self._connect() as conn:
+            conn.execute(
+                "UPDATE mastery_notebook_outbox SET applied = 1 WHERE event_id = ?", (event_id,)
+            )
+
+    def has_notebook_assessment(self, path_id: str, question_id: str) -> bool:
+        """Whether a question uses durable delivery, even if already delivered."""
+        with self._connect() as conn:
+            return (
+                conn.execute(
+                    "SELECT 1 FROM mastery_notebook_outbox WHERE path_id = ? AND question_id = ? LIMIT 1",
+                    (path_id, question_id),
+                ).fetchone()
+                is not None
+            )
 
     def delete(self, book_id: str) -> None:
         path_id = self._validate_id(book_id)

@@ -434,7 +434,11 @@ class TestMasteryPolicy:
         progress = LearningProgress(book_id="test")
         for correct in outcomes:
             progress.quiz_attempts.append(
-                QuizAttempt(question_id="q", knowledge_point_id=kp_id, is_correct=correct)
+                # Every real recording path captures the independence flag;
+                # only legacy JSON loads without it (treated as unknown).
+                QuizAttempt(
+                    question_id="q", knowledge_point_id=kp_id, is_correct=correct, independent=True
+                )
             )
         return service, progress
 
