@@ -194,4 +194,6 @@ B0/B1 发现可小范围修复的启动问题可在当前批处理并记录，�
 
 ### 新会话可直接使用的指令
 
+**远端布局（2026-10-24 确认）**：origin = 上游 `HKUDS/DeepTutor`（无推送权，JueJuez 账号被拒）；个人 fork remote 名为 `fork` = `git@github.com:JueJuez/DeepTutor.git`。本地提交一律 `git push fork main`。截至本记录已推送至 `4d701cb0`。
+
 > 请先读根 AGENTS.md、CONTRIBUTING.md 和 docs/personal-learning-mvp.md，重新检查分支、提交、未提交修改、已有配置与数据。按计划先完成 B0 和 B1：在本机跑通 DeepTutor，用文字型 PDF 与无 DRM EPUB 各一个单元验证原书阅读、学习路径、独立作答、应用反馈、持久化和复习，记录真实代码与运行证据，再补确认存在的缺口。先核实模型、材料与预算，不批量生成整书，不照搬 Open Notebook 的安装/数据库方案，不重建已有学习引擎。缺少真实输入时继续源码审计、自制样本与离线检查。按批推进并更新同一计划，区分实现、离线测试、真实调用、语义审核与个人延迟试用；保留失败和原始证据，不覆盖已有数据。
