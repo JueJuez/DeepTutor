@@ -84,6 +84,30 @@ def _answers(*pairs: tuple[str, int]) -> list[dict]:
     return [{"question_id": qid, "selected_index": index} for qid, index in pairs]
 
 
+def test_feedback_retry_retains_assistance_after_reopen(store, monkeypatch) -> None:
+    questions = [{**question, "_answer_isolated": True} for question in _quiz_questions()]
+    asyncio.run(store.create_session(title="Reading", session_id="reading-session"))
+    asyncio.run(store.put_reading_quiz_pending(MATERIAL_ID, LOCATOR, questions))
+    wrong = _payload(answers=_answers(("q_1", 0)), submission_id="wrong")
+    right = _payload(answers=_answers(("q_1", 1)), submission_id="right")
+    with TestClient(_build_app(store)) as client:
+        _submit(client, wrong)
+        _submit(client, right)
+        _submit(client, wrong)
+    reopened = SQLiteSessionStore(db_path=store.db_path)
+    attempts = asyncio.run(reopened.list_assessment_attempts("reading-session"))
+    assert len(attempts) == 2
+    assert [item["hints_used"] for item in attempts] == [0, 1]
+    assert [item["attempt_count"] for item in attempts] == [1, 2]
+    card = asyncio.run(
+        reopened.find_notebook_entry(
+            "reading-session", "q_1", turn_id=f"reading:{MATERIAL_ID}:loc:{LOCATOR}"
+        )
+    )
+    assert card["user_answer"] == "Atlantic"
+    assert card["hints_used"] == 1
+
+
 def _payload(**overrides) -> dict:
     values: dict = {
         "locator": LOCATOR,

@@ -23,10 +23,17 @@ class ReviewConflict(ValueError):
 
 
 def initialize_practice(conn: sqlite3.Connection) -> None:
+    """Initialize review storage and atomically replace its versioned trigger.
+
+    SQLite serializes the entire DDL transaction across processes. Without
+    this boundary two initializers can interleave DROP/CREATE, and writers
+    can observe a window without the review capture trigger.
+    """
     existing = conn.execute(
         "SELECT 1 FROM sqlite_master WHERE name='practice_review_state'"
     ).fetchone()
     conn.executescript("""
+        BEGIN IMMEDIATE;
         CREATE TABLE IF NOT EXISTS practice_review_state (
             entry_id INTEGER PRIMARY KEY REFERENCES notebook_entries(id) ON DELETE CASCADE,
             is_mistake INTEGER NOT NULL DEFAULT 1,
@@ -87,6 +94,7 @@ def initialize_practice(conn: sqlite3.Connection) -> None:
                 version = version + 1
             WHERE entry_id = NEW.id AND (OLD.is_correct = 1 OR OLD.result = 'ungraded');
         END;
+        COMMIT;
     """)
     if not existing:
         # Additive migration: original IDs, answers, timestamps and categories stay intact.

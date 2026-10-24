@@ -245,6 +245,17 @@ def test_quiz_crosses_the_api_boundary_with_stored_text(monkeypatch, tmp_path):
     body = response.json()
     assert body["type"] == "quiz"
     assert len(body["payload"]["questions"]) == 3
+    for question in body["payload"]["questions"]:
+        assert set(question) == {"id", "prompt", "choices", "material_revision"}
+    # The answer is retained only by the server and survives reopening SQLite.
+    import asyncio
+
+    from deeptutor.services.session.sqlite_store import SQLiteSessionStore
+
+    sessions = SQLiteSessionStore(db_path=tmp_path / "data/user/chat_history.db")
+    pending = asyncio.run(sessions.get_reading_quiz_pending(material.material_id, 1))
+    assert len(pending) == 3
+    assert all(question["correct_choice_index"] == 1 for question in pending.values())
     assert len(calls) == 2
     prompt = json.loads(calls[1]["prompt"])
     assert prompt["selection"] == "verified phrase supports the answer"

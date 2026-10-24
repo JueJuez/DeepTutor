@@ -21,6 +21,19 @@ def test_get_pricing_falls_back_for_an_unknown_model() -> None:
     assert get_pricing("unknown-model") == MODEL_PRICING["gpt-4o-mini"]
 
 
+def test_unknown_price_is_not_a_free_or_default_priced_call() -> None:
+    from deeptutor.runtime.agentic.usage import UsageTracker
+
+    assert get_pricing("unknown-model", fallback=False) == {}
+    for model in (None, "unknown-model"):
+        tracker = UsageTracker(model=model)
+        tracker.add_estimated(input_chars=35, output_chars=70)
+        summary = tracker.summary()
+        assert summary["total_cost_usd"] is None
+        assert summary["cost_status"] == "unknown"
+        assert summary["estimated_calls"] == 1
+
+
 def test_usage_tracker_uses_gpt_4o_mini_pricing() -> None:
     tracker = UsageTracker(model="gpt-4o-mini")
     tracker.add_from_response(

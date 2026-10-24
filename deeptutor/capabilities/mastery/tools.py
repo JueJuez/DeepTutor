@@ -421,6 +421,7 @@ async def _sync_qualitative_to_question_bank(
     material_title: str = "",
     quality: float | None = None,
     result: str = "",
+    hints_used: int = 0,
 ) -> None:
     if not session_id:
         return
@@ -441,6 +442,7 @@ async def _sync_qualitative_to_question_bank(
         result=result or ("correct" if passed else "partial"),
         source="mastery_path",
         assessment_type="qualitative",
+        hints_used=hints_used,
         material_id=path_id,
         material_title=material_title,
         section_id=knowledge_point_id,
@@ -2030,6 +2032,17 @@ class MasteryAssessTool(BaseTool):
             return _json_result({"knowledge_point_id": kp_id, **receipt}, meta_key="mastery_assess")
         passed = receipt["result"] == "correct"
         feedback = receipt["feedback"]
+        evidence = next(
+            (
+                item
+                for item in reversed(progress.learning_evidence)
+                if item.knowledge_point_id == kp_id
+                and item.assessment_type == "qualitative"
+                and item.session_id == _resolve_session_id(kwargs)
+                and item.turn_id == _resolve_turn_id(kwargs)
+            ),
+            None,
+        )
         kp, _, _ = find_knowledge_point(progress, kp_id)
         assert kp is not None
         await _sync_qualitative_to_question_bank(
@@ -2043,6 +2056,7 @@ class MasteryAssessTool(BaseTool):
             result=receipt["result"],
             quality={"correct": 1.0, "partial": 0.5, "incorrect": 0.0}[receipt["result"]],
             material_title=progress.name,
+            hints_used=evidence.hints_used if evidence else 0,
         )
         payload = {
             "knowledge_point_id": kp_id,
@@ -2199,6 +2213,8 @@ class MasteryRepairQuestionTool(BaseTool):
                 choice_options=details["options"] or None,
                 correct_answer=details["expected_answer"],
                 section_title=section_title or (kp.name if kp is not None else ""),
+                hints_used=details["hints_used"],
+                attempt_count=details["attempt_count"],
             )
         payload = {
             "status": "repaired",

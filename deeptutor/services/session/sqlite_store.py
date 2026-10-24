@@ -3576,8 +3576,11 @@ class SQLiteSessionStore:
                     (origin_type, origin_ref, turn_id, question_id),
                 ).fetchone()
                 count = int(row["count"]) + 1
-                item = {**item, "attempt_count": count}
-                attempt = {**attempt, "attempt_count": count}
+                # A retry with the same event id returned above. A new answer
+                # after feedback on this question is assisted practice.
+                hints_used = max(int(attempt.get("hints_used") or 0), int(count > 1))
+                item = {**item, "attempt_count": count, "hints_used": hints_used}
+                attempt = {**attempt, "attempt_count": count, "hints_used": hints_used}
             latest = conn.execute(
                 "SELECT occurred_at, attempt_id FROM assessment_attempts "
                 "WHERE origin_type = ? AND origin_ref = ? AND turn_id = ? AND question_id = ? "

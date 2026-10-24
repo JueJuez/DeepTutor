@@ -43,7 +43,6 @@ type QuizQuestion = {
   id?: string;
   prompt: string;
   choices: string[];
-  correct_choice_index?: number;
 };
 
 type TranslationResult = {
@@ -514,10 +513,7 @@ function QuizQuestions({
       {questions.map((question, index) => {
         const key = question.id || String(index);
         const selected = answers[key];
-        const correctChoiceIndex = Number.isInteger(question.correct_choice_index)
-          ? Number(question.correct_choice_index)
-          : -1;
-        const canGrade = correctChoiceIndex >= 0 && correctChoiceIndex < question.choices.length;
+        const canGrade = Boolean(question.id) && question.choices.length >= 2;
         if (!canGrade) {
           return (
             <div key={key} className="mt-3">

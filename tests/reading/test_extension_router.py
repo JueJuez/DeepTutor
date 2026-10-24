@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from contextlib import asynccontextmanager
 from pathlib import Path
 import threading
 from types import SimpleNamespace
@@ -320,19 +321,38 @@ def test_async_reading_action_runs_on_its_event_loop(material, monkeypatch, use_
 @pytest.mark.parametrize("sync_wrapper", [False, True])
 def test_async_reading_action_can_be_retried_after_timeout(material, monkeypatch, sync_wrapper):
     calls = 0
+    entered = threading.Event()
+    cancelled = threading.Event()
+    real_timeout = asyncio.timeout
+    scopes = []
+
+    @asynccontextmanager
+    async def timeout_after_handler_starts(_delay):
+        # Exercise real asyncio cancellation, starting the deadline only once
+        # the handler entered. Executor startup is not the behavior under test.
+        async with real_timeout(None) as scope:
+            scopes.append(scope)
+            yield
 
     async def run(*_args):
         nonlocal calls
         calls += 1
         if calls == 1:
-            await asyncio.sleep(1)
+            entered.set()
+            scopes[-1].reschedule(asyncio.get_running_loop().time())
+            try:
+                await asyncio.Event().wait()
+            finally:
+                cancelled.set()
         return ReadingExtensionResult(type="card")
 
     handler = (lambda *args: run(*args)) if sync_wrapper else run
-    monkeypatch.setattr(reading_extensions, "ACTION_TIMEOUT_S", 0.01)
+    monkeypatch.setattr(reading_extensions.asyncio, "timeout", timeout_after_handler_starts)
     client = _client(monkeypatch, _extension(handler))
     url = f"/api/reading/materials/{material.material_id}/extensions/sample/actions/open"
     assert client.post(url, json={"locator": 1}).status_code == 503
+    assert entered.is_set()
+    assert cancelled.is_set()
     assert client.post(url, json={"locator": 1}).status_code == 200
     assert calls == 2
 

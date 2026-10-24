@@ -34,7 +34,6 @@ beforeEach(() => {
           id: "quiz-1",
           prompt: "Which ocean?",
           choices: ["Pacific", "Atlantic"],
-          correct_choice_index: 1,
         },
       ],
     },

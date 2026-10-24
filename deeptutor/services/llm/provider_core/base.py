@@ -403,9 +403,32 @@ class LLMProvider(ABC):
                 # caller opted in (model is *not* in the known-vision
                 # allowlist). For allowlisted models we trust the images and
                 # let the real error surface rather than masking it.
-                if allow_image_fallback and has_image_parts(messages):
+                from deeptutor.services.llm.request_compat import is_image_input_unsupported
+
+                error_text = response.content or ""
+                error_status = status_code or self._status_code_from_message(error_text)
+                configuration_error = error_status in {401, 403, 404} or any(
+                    marker in error_text.lower()
+                    for marker in (
+                        "invalid api key",
+                        "authentication",
+                        "unauthorized",
+                        "forbidden",
+                        "invalid model",
+                        "model not found",
+                        "insufficient balance",
+                        "insufficient credit",
+                        "credit insufficient",
+                    )
+                )
+                if (
+                    allow_image_fallback
+                    and not configuration_error
+                    and has_image_parts(messages)
+                    and is_image_input_unsupported(caught_exception or ValueError(error_text))
+                ):
                     logger.warning(
-                        "Non-transient LLM error with image content; model is not"
+                        "Provider rejected image input; model is not"
                         " known vision-capable, retrying once without images"
                     )
                     retry_response = await measured_call(

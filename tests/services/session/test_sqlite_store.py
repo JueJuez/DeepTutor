@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from contextlib import closing
 import json
 from pathlib import Path
 import sqlite3
@@ -87,14 +88,19 @@ def test_sqlite_store_migrates_legacy_chat_history_db(tmp_path: Path) -> None:
         service._user_data_dir = tmp_path / "data" / "user"
         legacy_db = tmp_path / "data" / "chat_history.db"
         legacy_db.parent.mkdir(parents=True, exist_ok=True)
-        with sqlite3.connect(legacy_db) as conn:
+        # SQLite's transaction context does not close the handle. Windows
+        # cannot move an open database, even after its transaction commits.
+        with closing(sqlite3.connect(legacy_db)) as conn:
             conn.execute("CREATE TABLE legacy (id INTEGER PRIMARY KEY)")
+            conn.execute("INSERT INTO legacy VALUES (7)")
             conn.commit()
 
         store = SQLiteSessionStore()
 
         assert store.db_path.exists()
         assert not legacy_db.exists()
+        with closing(sqlite3.connect(store.db_path)) as migrated:
+            assert migrated.execute("SELECT id FROM legacy").fetchone() == (7,)
     finally:
         service._project_root = original_root
         service._user_data_dir = original_user_dir

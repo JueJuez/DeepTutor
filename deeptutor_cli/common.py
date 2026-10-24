@@ -381,6 +381,8 @@ class TurnStreamRenderer:
         cost_usd = cost.get("total_cost_usd")
         if isinstance(cost_usd, (int, float)) and cost_usd > 0:
             parts.append(f"cost=${cost_usd:.4f}")
+        elif cost.get("cost_status") == "unknown":
+            parts.append("cost=unknown")
         return (" " + " ".join(parts)) if parts else ""
 
     # ---- event handlers --------------------------------------------------

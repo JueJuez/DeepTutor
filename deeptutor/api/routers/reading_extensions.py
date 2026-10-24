@@ -283,6 +283,17 @@ async def run_extension_action(
         quiz_payload = dumped.get("payload")
         if dumped.get("type") == "quiz" and isinstance(quiz_payload, dict):
             await _persist_reading_quiz_pending(material_id, payload.locator, quiz_payload)
+            # Keep the grading key durable before projecting a public response.
+            # An allowlist also withholds plugin-supplied rubrics/explanations.
+            quiz_payload["questions"] = [
+                {
+                    key: question[key]
+                    for key in ("id", "prompt", "choices", "material_revision")
+                    if key in question
+                }
+                for question in quiz_payload.get("questions", [])
+                if isinstance(question, dict)
+            ]
     except TimeoutError as exc:
         logger.warning("Reading extension %s action %s timed out", extension_id, action)
         raise HTTPException(
@@ -369,6 +380,7 @@ async def _persist_reading_quiz_pending(
         if isinstance(question, dict):
             question["id"] = f"{quiz_id}:{index}"
             question["material_revision"] = revision
+            question["_answer_isolated"] = True
     await get_sqlite_session_store().put_reading_quiz_pending(material_id, locator, questions)
 
 
@@ -463,6 +475,9 @@ async def submit_quiz_answers(material_id: str, payload: QuizAnswersPayload) -> 
                     material_id=material_id,
                     material_title=material_title,
                     material_revision=int(question.get("material_revision") or 0),
+                    # Legacy pending cards were served with their answer key.
+                    # Conservatively retain that exposure on their attempts.
+                    hints_used=0 if question.get("_answer_isolated") is True else 1,
                     section_id=str(payload.locator),
                     section_title=section_title,
                     mastery_path_id=str(question.get("mastery_path_id") or ""),

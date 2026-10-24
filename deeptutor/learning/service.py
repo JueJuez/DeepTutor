@@ -2658,6 +2658,11 @@ class LearningService:
                 "options": question.choice_map if question is not None else {},
                 "explanation": question.explanation if question is not None else "",
                 "difficulty": question.difficulty if question is not None else "",
+                "hints_used": max(
+                    int(question is not None and not _question_independent(question)),
+                    int(any(not attempt.independent for attempt in attempts)),
+                ),
+                "attempt_count": max(1, len(attempts)),
                 "session_id": session_id or (interaction.session_id if interaction else ""),
                 "turn_id": turn_id or (interaction.turn_id if interaction else ""),
             }

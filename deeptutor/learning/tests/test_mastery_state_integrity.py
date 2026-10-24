@@ -139,6 +139,34 @@ async def _build(path_id: str, modules: list[dict]) -> dict:
     return json.loads(result.content)
 
 
+@pytest.mark.asyncio
+async def test_open_question_tool_content_and_metadata_withhold_key(path_id):
+    await _build(
+        path_id,
+        [{"name": "Synthetic", "knowledge_points": [{"name": "Concept", "type": "memory"}]}],
+    )
+    status = json.loads((await MasteryStatusTool().execute(_mastery_path_id=path_id)).content)
+    result = await MasteryQuizTool().execute(
+        _mastery_path_id=path_id,
+        knowledge_point_id=status["next"]["knowledge_point_id"],
+        question="Explain this synthetic concept",
+        expected_answer="PRIVATE_REFERENCE_SENTINEL",
+        explanation="PRIVATE_RUBRIC_SENTINEL",
+        question_type="short",
+    )
+    assert result.success
+    status_result = await MasteryStatusTool().execute(_mastery_path_id=path_id)
+    public = (
+        result.content
+        + json.dumps(result.metadata)
+        + status_result.content
+        + json.dumps(status_result.metadata)
+    )
+    assert "PRIVATE_REFERENCE_SENTINEL" not in public
+    assert "PRIVATE_RUBRIC_SENTINEL" not in public
+    assert "expected_answer" not in public
+
+
 # ── 1. unrelated replace must not inherit positional state ─────────────────
 
 
@@ -502,8 +530,9 @@ def test_correct_answer_key_regrades_and_restores_mastery(tmp_path):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("assisted", [False, True])
 async def test_repair_question_tool_voids_wrong_key_from_question_bank(
-    path_id, tmp_path, monkeypatch
+    path_id, tmp_path, monkeypatch, assisted
 ):
     from deeptutor.services.session.sqlite_store import SQLiteSessionStore
 
@@ -541,6 +570,16 @@ async def test_repair_question_tool_voids_wrong_key_from_question_bank(
         for option in quiz["pending_question"]["options"]
         if option["body"] == "the true statement"
     )
+    if assisted:
+
+        def expose(tx):
+            interaction = tx.get_interaction(quiz["question_id"])
+            interaction.question.assistance_used = True
+            tx.put_interaction(interaction)
+            tx.progress.pending_question.assistance_used = True
+            tx.touch()
+
+        LearningStore().mutate(path_id, expose)
     graded = json.loads(
         (
             await MasteryGradeTool().execute(
@@ -574,10 +613,35 @@ async def test_repair_question_tool_voids_wrong_key_from_question_bank(
     assert kept["total"] == 1
     assert kept["items"][0]["is_correct"] is False
     assert kept["items"][0]["result"] == "voided"
+    assert kept["items"][0]["hints_used"] == int(assisted)
     attempts = await session_store.list_assessment_attempts(
         session["id"], question_id=quiz["question_id"]
     )
     assert [attempt["result"] for attempt in attempts] == ["incorrect", "voided"]
+    before = LearningStore().load(path_id)
+    repeated = await MasteryRepairQuestionTool().execute(
+        _mastery_path_id=path_id,
+        _session_id=session["id"],
+        _turn_id="turn_void_1",
+        question_id=quiz["question_id"],
+        action="void",
+        reason="expected_answer pointed at an incorrect option",
+    )
+    assert repeated.success
+    after = LearningStore().load(path_id)
+    assert after.learning_evidence == before.learning_evidence
+    assert after.repetition_states == before.repetition_states
+    reopened = SQLiteSessionStore(db_path=session_store.db_path)
+    assert (
+        len(await reopened.list_assessment_attempts(session["id"], question_id=quiz["question_id"]))
+        == 2
+    )
+    audit = [
+        event
+        for event in LearningStore().list_events(path_id)
+        if event.event_type == "assessment.voided"
+    ]
+    assert audit[0].payload["reason"] == "expected_answer pointed at an incorrect option"
 
 
 # ── 6. defer advances without faking mastery ───────────────────────────────

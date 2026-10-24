@@ -95,3 +95,22 @@ async def test_structured_status_overrides_message_status(
     )
     assert response.finish_reason == "error"
     assert provider.calls == expected_calls
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("retries", [0, 2, 8])
+async def test_retry_exhaustion_is_bounded_and_retains_failure(retries, monkeypatch):
+    import asyncio
+
+    async def no_wait(_delay):
+        return None
+
+    monkeypatch.setattr(asyncio, "sleep", no_wait)
+    provider = _FailingProvider("HTTP 503: synthetic outage")
+    response = await provider.chat_with_retry(
+        messages=[{"role": "user", "content": "synthetic"}],
+        retry_delays=(0.001,) * retries,
+    )
+    assert provider.calls == retries + 1
+    assert response.finish_reason == "error"
+    assert response.content == "HTTP 503: synthetic outage"

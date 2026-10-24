@@ -30,9 +30,11 @@ async def test_qualitative_bank_preserves_typed_result(monkeypatch, result, qual
         evidence="Actual learner reply",
         result=result,
         quality=quality,
+        hints_used=1,
     )
     assert captured[0].result == result
     assert captured[0].quality == quality
+    assert captured[0].hints_used == 1
 
 
 @pytest.mark.parametrize("grouped", [False, True])

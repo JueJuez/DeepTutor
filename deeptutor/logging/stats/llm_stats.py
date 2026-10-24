@@ -40,8 +40,12 @@ MODEL_PRICING = {
 }
 
 
-def get_pricing(model: str) -> dict[str, float]:
-    """Get pricing for a model, preferring the most specific match."""
+def get_pricing(model: str, *, fallback: bool = True) -> dict[str, float]:
+    """Look up static pricing; strict callers leave unknown models unpriced.
+
+    The legacy fallback is retained for older logging consumers. Neither a
+    static table match nor the fallback represents a provider invoice.
+    """
     model_lower = model.lower()
 
     exact_match = MODEL_PRICING.get(model_lower)
@@ -53,7 +57,7 @@ def get_pricing(model: str) -> dict[str, float]:
     if most_specific is not None:
         return most_specific[1]
 
-    return MODEL_PRICING.get("gpt-4o-mini", {"input": 0.00015, "output": 0.0006})
+    return MODEL_PRICING["gpt-4o-mini"] if fallback else {}
 
 
 def estimate_tokens(text: str) -> int:

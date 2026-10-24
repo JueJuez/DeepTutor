@@ -1217,3 +1217,11 @@ image options, assistant messages, and tool results remain complete. Saved histo
 keeps every original attachment; references are rebuilt after history is trimmed.
 This reduces repeated image payloads, but provider-reported usage remains the
 source of truth for billing and cache hits.
+
+### Personal PDF / EPUB learning validation and recovery
+
+The local [personal learning plan](docs/personal-learning-mvp.md) records the
+implemented offline safeguards, remaining development and live validation gaps.
+It also documents `scripts/learning_backup.py`, a maintenance tool for quiesced,
+selected single-user learning stores. Restore always targets a new directory;
+model settings and external knowledge bases are outside its backup scope.

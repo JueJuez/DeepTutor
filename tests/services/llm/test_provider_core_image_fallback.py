@@ -78,3 +78,29 @@ async def test_keeps_images_and_surfaces_error_when_fallback_disabled() -> None:
     # Exactly one call — no strip-and-retry — and images are preserved.
     assert provider.calls_had_image == [True]
     assert has_image_parts(messages) is True
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "error",
+    [
+        "HTTP 401: invalid API key",
+        "HTTP 403: forbidden",
+        "invalid model",
+        "credit insufficient balance",
+    ],
+)
+async def test_images_do_not_retry_auth_configuration_or_balance_errors(error: str) -> None:
+    provider = _ScriptedProvider(
+        [
+            LLMResponse(content=error, finish_reason="error"),
+            LLMResponse(content="unexpected extra call", finish_reason="stop"),
+        ]
+    )
+    messages = _image_messages()
+    response = await provider.chat_with_retry(
+        messages=messages, retry_delays=(), allow_image_fallback=True
+    )
+    assert provider.calls_had_image == [True]
+    assert response.finish_reason == "error"
+    assert has_image_parts(messages)

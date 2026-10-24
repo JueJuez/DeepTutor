@@ -184,6 +184,18 @@ def test_done_summary_line_includes_rounds_tools_tokens_cost(monkeypatch) -> Non
     assert "cost=$0.0042" in result.output
 
 
+def test_unknown_cost_is_explicit_in_cli(monkeypatch) -> None:
+    events = _agent_loop_turn_events()
+    events[-2]["metadata"]["metadata"]["cost_summary"].update(
+        total_cost_usd=None, cost_status="unknown"
+    )
+    _install_fake_runtime(monkeypatch, events)
+    result = runner.invoke(app, ["run", "chat", "hello"])
+    assert result.exit_code == 0, result.output
+    assert "cost=unknown" in result.output
+    assert "cost=$0" not in result.output
+
+
 def test_empty_call_status_markers_print_nothing(monkeypatch) -> None:
     _install_fake_runtime(monkeypatch, _agent_loop_turn_events())
 

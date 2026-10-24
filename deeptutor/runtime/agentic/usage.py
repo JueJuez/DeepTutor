@@ -29,6 +29,7 @@ class UsageTracker:
         self.completion_tokens: int = 0
         self.total_tokens: int = 0
         self.calls: int = 0
+        self.estimated_calls: int = 0
         self.model: str | None = model
 
     def add_from_response(self, response_or_usage: Any) -> None:
@@ -47,6 +48,7 @@ class UsageTracker:
         self.completion_tokens += est_output
         self.total_tokens += est_input + est_output
         self.calls += 1
+        self.estimated_calls += 1
 
     def add_usage(
         self,
@@ -80,17 +82,20 @@ class UsageTracker:
     def summary(self) -> dict[str, Any] | None:
         if self.calls == 0:
             return None
-        cost_usd = 0.0
+        cost_usd = None
         if self.model:
             # Local import keeps ``core.agentic`` import-light at module load.
             from deeptutor.logging.stats.llm_stats import get_pricing
 
-            pricing = get_pricing(self.model)
-            cost_usd = (self.prompt_tokens / 1000.0) * pricing.get("input", 0.0) + (
-                self.completion_tokens / 1000.0
-            ) * pricing.get("output", 0.0)
+            pricing = get_pricing(self.model, fallback=False)
+            if pricing:
+                cost_usd = (self.prompt_tokens / 1000.0) * pricing["input"] + (
+                    self.completion_tokens / 1000.0
+                ) * pricing["output"]
         return {
             "total_cost_usd": cost_usd,
+            "cost_status": "unknown" if cost_usd is None else "estimated",
+            "estimated_calls": self.estimated_calls,
             "total_tokens": self.total_tokens,
             "total_calls": self.calls,
             "prompt_tokens": self.prompt_tokens,
