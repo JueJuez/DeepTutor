@@ -579,6 +579,20 @@ class ReadingStore:
             # images.
             _carry_dir(material_dir / RAW_DIR, stage_dir / RAW_DIR)
             _carry_dir(material_dir / ASSETS_DIR, stage_dir / ASSETS_DIR)
+            # Archive the outgoing units under the current revision number so
+            # questions and answers captured against them stay traceable to
+            # the exact text they were created from (same contract as re-ingest).
+            revision_dir = stage_dir / REVISIONS_DIR / f"{existing.revision:06d}"
+            if not revision_dir.exists():
+                revision_dir.mkdir(parents=True, exist_ok=True)
+                for filename in (MANIFEST_NAME, OUTLINE_NAME, UNIT_REFS_NAME):
+                    source = material_dir / filename
+                    if source.is_file():
+                        shutil.copy2(source, revision_dir / filename)
+                for dirname in (UNITS_DIR, ASSETS_DIR):
+                    source_dir = material_dir / dirname
+                    if source_dir.is_dir():
+                        shutil.copytree(source_dir, revision_dir / dirname)
             for state_dir in (ANNOTATIONS_DIR, POSITIONS_DIR, BOOKMARKS_DIR, REVISIONS_DIR):
                 source_state_dir = material_dir / state_dir
                 if source_state_dir.is_dir():
@@ -1555,6 +1569,12 @@ def _safe_filename(name: str, *, fallback: str) -> str:
 def _guess_mime(filename: str) -> str:
     import mimetypes
 
+    # Same Windows-registry problem _MEDIA_MIME solves for media files: the
+    # OS table can answer ``application/epub`` for ``.epub``, while the
+    # faithful-viewer contract expects ``application/epub+zip``.
+    override = {".epub": "application/epub+zip"}.get(Path(filename).suffix.lower())
+    if override:
+        return override
     mime, _ = mimetypes.guess_type(filename)
     return mime or "application/octet-stream"
 

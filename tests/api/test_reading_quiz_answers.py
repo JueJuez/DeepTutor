@@ -404,3 +404,50 @@ def test_standalone_submission_retry_keeps_one_origin_and_one_record(store):
             )
             assert response.status_code == 200
     assert asyncio.run(store.list_notebook_entries())["total"] == 1
+
+
+def test_quiz_questions_and_attempts_carry_material_revision(
+    store: SQLiteSessionStore,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """B2 provenance: pending questions and recorded attempts keep the
+    content revision they were captured against (0 when unknown)."""
+    from deeptutor.api.routers import reading_extensions as router_module
+
+    class _RevisionedManifest(_StubManifest):
+        revision = 3
+
+    monkeypatch.setattr(
+        "deeptutor.api.routers.reading_extensions.ReadingStore",
+        lambda: type("_RStore", (), {"manifest": lambda self, mid: _RevisionedManifest()})(),
+    )
+    asyncio.run(store.create_session(title="Reading", session_id="reading-session"))
+    asyncio.run(
+        router_module._persist_reading_quiz_pending(
+            MATERIAL_ID, LOCATOR, {"questions": _quiz_questions()}
+        )
+    )
+    pending = asyncio.run(store.get_reading_quiz_pending(MATERIAL_ID, LOCATOR))
+    assert all(question["material_revision"] == 3 for question in pending.values())
+
+    # Persisting rewrites question ids; submit against the stored ids.
+    ordered = [qid for qid, _ in sorted(pending.items())]
+    with TestClient(_build_app(store)) as client:
+        _submit(
+            client,
+            _payload(
+                submission_id="sub-rev",
+                answers=[
+                    {"question_id": ordered[0], "selected_index": 1},
+                    {"question_id": ordered[1], "selected_index": 0},
+                ],
+            ),
+        )
+
+    attempt_id = (
+        f"reading:conversation:reading-session:"
+        f"reading:{MATERIAL_ID}:loc:{LOCATOR}:{ordered[0]}:sub-rev"
+    )
+    attempt = asyncio.run(store.get_assessment_attempt(attempt_id))
+    assert attempt is not None
+    assert attempt["material_revision"] == 3

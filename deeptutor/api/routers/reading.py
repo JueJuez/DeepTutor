@@ -240,6 +240,11 @@ class UnitText(BaseModel):
     locator: int
     unit: str
     text: str
+    # Per-unit extraction quality: a unit with no extractable text (cover,
+    # scanned page, empty spine item) must be visible to callers before it
+    # reaches quiz or assessment flows.
+    empty: bool = False
+    char_count: int = 0
 
 
 class TextQuoteSelectorPayload(BaseModel):
@@ -1253,10 +1258,13 @@ async def get_unit(material_id: str, locator: int) -> UnitText:
     try:
         assert_learning_material(material_id)
         manifest = store.manifest(material_id)
+        text = store.unit_text(material_id, locator)
         return UnitText(
             locator=locator,
             unit=manifest.unit,
-            text=store.unit_text(material_id, locator),
+            text=text,
+            empty=not text.strip(),
+            char_count=len(text.strip()),
         )
     except Exception as exc:
         raise _http_error(exc) from exc
@@ -1285,10 +1293,13 @@ async def get_revision_unit(material_id: str, revision: int, locator: int) -> Un
         )
         if manifest is None:
             raise MaterialNotFound(f"revision {revision} not found")
+        text = store.revision_unit_text(material_id, revision, locator)
         return UnitText(
             locator=locator,
             unit=manifest.unit,
-            text=store.revision_unit_text(material_id, revision, locator),
+            text=text,
+            empty=not text.strip(),
+            char_count=len(text.strip()),
         )
     except Exception as exc:
         raise _http_error(exc) from exc

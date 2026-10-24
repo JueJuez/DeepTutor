@@ -289,7 +289,8 @@ def test_record_qualitative_pass_and_fail_drive_display_mastery(tmp_path):
     service.record_qualitative(progress, "kp1", passed=False)
     assert progress.qualitative_mastery["kp1"] is False
     assert progress.mastery_levels["kp1"] <= 0.4
-    assert progress.learning_evidence[-1].result == "partial"
+    # A fail without a verdict is recorded as incorrect, not the flattering partial.
+    assert progress.learning_evidence[-1].result == "incorrect"
     assert progress.learning_evidence[-1].quality == 0.2
 
 
@@ -373,7 +374,7 @@ def test_record_qualitative_initial_failure_schedules_repair_review(tmp_path):
     assert state.lapse_count == 1
     assert [task.knowledge_point_id for task in progress.review_queue] == ["kp1"]
     assert len(progress.learning_evidence) == 1
-    assert progress.learning_evidence[0].result == "partial"
+    assert progress.learning_evidence[0].result == "incorrect"
 
 
 def test_qualitative_live_state_matches_evidence_replay(tmp_path, monkeypatch):
@@ -626,3 +627,25 @@ def test_active_error_on_another_question_does_not_weaken_correct_answer(tmp_pat
         )
     assert progress.error_records[0].status == "retrying"
     assert [event.quality for event in progress.learning_evidence] == [0.0, 0.0, 1.0]
+
+
+def test_hinted_qualitative_pass_does_not_display_full_mastery(tmp_path):
+    """B2 consistency: a qualitative pass whose evidence used hints must not
+    display the clean pass value (policy.display_mastery), matching
+    learning_stage's refusal to call hinted evidence independently
+    demonstrated."""
+    from deeptutor.learning.policy import display_mastery, learning_stage
+
+    store = LearningStore(root=tmp_path)
+    service = LearningService(store)
+    progress = _make_progress()
+
+    service.record_qualitative(progress, "kp1", passed=True, evidence="good", hints_used=2)
+    assert progress.qualitative_mastery["kp1"] is True
+    assert progress.learning_evidence[-1].hints_used == 2
+    assert learning_stage(progress, "kp1") == "practiced_with_help"
+    assert display_mastery(progress, progress.modules[0].knowledge_points[0]) < 1.0
+
+    # A later unhinted pass restores the full pass display.
+    service.record_qualitative(progress, "kp1", passed=True, evidence="good again")
+    assert display_mastery(progress, progress.modules[0].knowledge_points[0]) == 1.0

@@ -221,6 +221,13 @@ async def run_extension_action(
         position = store.position(material_id)
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    # A unit with no extractable text (scanned page, cover, empty spine item)
+    # cannot ground a quiz; running it previously surfaced as a runtime 503.
+    if extension_id == "quiz" and not unit_text.strip():
+        raise HTTPException(
+            status_code=422,
+            detail="This unit has no extractable text, so a quiz cannot be generated from it.",
+        )
     selection = _verified_selection(payload.selection, unit_text)
     if "selection" in declared_action.requires and not selection:
         raise HTTPException(status_code=400, detail="Select text from the visible unit first.")
@@ -354,9 +361,14 @@ async def _persist_reading_quiz_pending(
 
     # A regenerated quiz must not reuse q_1 and grade an old card against a new key.
     quiz_id = uuid4().hex
+    try:
+        revision = int(ReadingStore().manifest(material_id).revision)
+    except Exception:
+        revision = 0
     for index, question in enumerate(questions):
         if isinstance(question, dict):
             question["id"] = f"{quiz_id}:{index}"
+            question["material_revision"] = revision
     await get_sqlite_session_store().put_reading_quiz_pending(material_id, locator, questions)
 
 
@@ -450,6 +462,7 @@ async def submit_quiz_answers(material_id: str, payload: QuizAnswersPayload) -> 
                     assessment_type="focus_check",
                     material_id=material_id,
                     material_title=material_title,
+                    material_revision=int(question.get("material_revision") or 0),
                     section_id=str(payload.locator),
                     section_title=section_title,
                     mastery_path_id=str(question.get("mastery_path_id") or ""),

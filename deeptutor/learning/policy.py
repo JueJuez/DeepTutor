@@ -160,9 +160,18 @@ def is_mastered(progress: LearningProgress, kp: KnowledgePoint) -> bool:
 
 def display_mastery(progress: LearningProgress, kp: KnowledgePoint) -> float:
     """A 0..1 number for the map UI. Qualitatively-mastered points show full;
-    otherwise the recency-weighted accuracy stands in."""
+    otherwise the recency-weighted accuracy stands in.
+
+    A qualitative pass whose recorded evidence used hints is displayed through
+    ``mastery_levels`` instead, matching :func:`learning_stage`, which refuses
+    "independently demonstrated" to hinted evidence."""
     if kp.type in QUALITATIVE_TYPES and progress.qualitative_mastery.get(kp.id):
-        return _QUALITATIVE_PASS_DISPLAY
+        if not any(
+            item.assessment_type == "qualitative" and item.hints_used
+            for item in progress.learning_evidence
+            if item.knowledge_point_id == kp.id
+        ):
+            return _QUALITATIVE_PASS_DISPLAY
     return float(progress.mastery_levels.get(kp.id, 0.0))
 
 

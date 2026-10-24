@@ -2789,6 +2789,7 @@ class LearningService:
         passed: bool,
         evidence: str = "",
         scheduler: SpacedRepetitionScheduler | None = None,
+        hints_used: int = 0,
     ) -> None:
         """Record the qualitative (CONCEPT / DESIGN) gate outcome.
 
@@ -2805,6 +2806,7 @@ class LearningService:
             passed=passed,
             evidence=evidence,
             scheduler=scheduler,
+            hints_used=hints_used,
         )
         self.save(progress)
 
@@ -2819,6 +2821,7 @@ class LearningService:
         session_id: str = "",
         turn_id: str = "",
         _assessment: dict | None = None,
+        hints_used: int = 0,
     ) -> LearningProgress:
         def record(tx):
             from deeptutor.learning.policy import QUALITATIVE_TYPES, find_knowledge_point
@@ -2861,6 +2864,7 @@ class LearningService:
                 session_id=session_id,
                 turn_id=turn_id,
                 verdict=_assessment["receipt"] if _assessment else None,
+                hints_used=hints_used,
             )
             if not applied:
                 return
@@ -2903,6 +2907,7 @@ class LearningService:
         session_id: str = "",
         turn_id: str = "",
         verdict: dict | None = None,
+        hints_used: int = 0,
     ) -> bool:
         evidence_id = ""
         if session_id or turn_id:
@@ -2915,7 +2920,15 @@ class LearningService:
         progress.qualitative_mastery[kp_id] = bool(passed)
         progress.deferred_objectives.pop(kp_id, None)
         current = progress.mastery_levels.get(kp_id, 0.0)
-        progress.mastery_levels[kp_id] = max(current, 1.0) if passed else min(current, 0.4)
+        # A pass reached with hint assistance must not display as a clean full
+        # mark: display_mastery falls back to mastery_levels for hinted passes,
+        # so only the unhinted pass may lift it to the pass-display value.
+        if passed and not hints_used:
+            progress.mastery_levels[kp_id] = max(current, 1.0)
+        elif passed:
+            progress.mastery_levels[kp_id] = max(current, 0.0)
+        else:
+            progress.mastery_levels[kp_id] = min(current, 0.4)
         if evidence:
             progress.feynman_explanations[kp_id] = evidence
         moment = time.time()
@@ -2924,13 +2937,16 @@ class LearningService:
             knowledge_point_id=kp_id,
             timestamp=moment,
             assessment_type="qualitative",
-            result=verdict["result"] if verdict else ("correct" if passed else "partial"),
+            # A fail without a verdict is a fail, not a partial: recording
+            # "partial" flattered evidence that never demonstrated anything.
+            result=verdict["result"] if verdict else ("correct" if passed else "incorrect"),
             quality={"correct": 1.0, "partial": 0.5, "incorrect": 0.0}[verdict["result"]]
             if verdict
             else ((1.0 if evidence else 0.9) if passed else 0.2),
             confidence=verdict.get("confidence") if verdict else None,
             learner_answer=evidence,
             feedback=verdict.get("feedback", "") if verdict else "",
+            hints_used=max(0, int(hints_used)),
             attempt_count=1,
             session_id=session_id,
             turn_id=turn_id,

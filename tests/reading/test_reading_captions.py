@@ -275,3 +275,22 @@ def test_refresh_document_requires_raw_bytes(tmp_path: Path) -> None:
         store.refresh_document("b" * 16)
 
     assert store.unit_text("b" * 16, 1) == "Some notes"
+
+
+def test_refresh_document_archives_outgoing_units(tmp_path: Path) -> None:
+    """B2 provenance: re-extraction keeps the outgoing units readable under
+    the revision they were captured against, so old questions and answers
+    stay traceable to their exact source text."""
+    store = ReadingStore(tmp_path / "reading")
+    pdf = tmp_path / "book.pdf"
+    _pdf_with_image(pdf)
+    manifest = store.ingest(pdf)
+    original_text = store.unit_text(manifest.material_id, 1)
+
+    store.refresh_document(manifest.material_id)
+
+    assert manifest.revision >= 1
+    archived = store.revision_unit_text(manifest.material_id, manifest.revision, 1)
+    assert archived == original_text
+    revisions = store.revisions(manifest.material_id)
+    assert [row.revision for row in revisions] == [manifest.revision]

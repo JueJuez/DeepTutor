@@ -96,6 +96,9 @@ class AssessmentRecord(BaseModel):
     difficulty: str = ""
     material_id: str = ""
     material_title: str = ""
+    # Content revision the question and answer were captured against; 0 marks
+    # records created before revision capture (provenance unknown, not rev 1).
+    material_revision: int = 0
     section_id: str = ""
     section_title: str = ""
     mastery_path_id: str = ""

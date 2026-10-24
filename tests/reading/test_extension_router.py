@@ -45,10 +45,10 @@ def _client(monkeypatch, extension) -> TestClient:
     return TestClient(app)
 
 
-def _extension(run_action, *, requires=(), result_types=("card",)):
+def _extension(run_action, *, requires=(), result_types=("card",), id="sample"):
     return SimpleNamespace(
         manifest=ReadingExtensionManifest(
-            id="sample",
+            id=id,
             version="1.0.0",
             name="Sample",
             actions=[
@@ -62,6 +62,42 @@ def _extension(run_action, *, requires=(), result_types=("card",)):
         ),
         run_action=run_action,
     )
+
+
+def _epub_with_empty_unit(tmp_path: Path) -> Path:
+    """A minimal EPUB whose first spine item (like a cover) carries no text."""
+    import zipfile
+
+    path = tmp_path / "with-cover.epub"
+    with zipfile.ZipFile(path, "w") as archive:
+        archive.writestr("mimetype", "application/epub+zip", zipfile.ZIP_STORED)
+        archive.writestr(
+            "META-INF/container.xml",
+            "<container xmlns='urn:oasis:names:tc:opendocument:xmlns:container'>"
+            "<rootfiles><rootfile full-path='OPS/book.opf'/></rootfiles></container>",
+        )
+        archive.writestr(
+            "OPS/book.opf",
+            "<package xmlns='http://www.idpf.org/2007/opf' "
+            "xmlns:dc='http://purl.org/dc/elements/1.1/' version='3.0'>"
+            "<metadata><dc:identifier>urn:uuid:empty-unit</dc:identifier>"
+            "<dc:title>Empty unit test</dc:title><dc:language>en</dc:language></metadata>"
+            "<manifest>"
+            "<item id='cover' href='cover.xhtml' media-type='application/xhtml+xml'/>"
+            "<item id='one' href='one.xhtml' media-type='application/xhtml+xml'/>"
+            "</manifest>"
+            "<spine><itemref idref='cover'/><itemref idref='one'/></spine></package>",
+        )
+        archive.writestr(
+            "OPS/cover.xhtml",
+            "<html xmlns='http://www.w3.org/1999/xhtml'><body>"
+            "<img src='cover.png' alt='cover'/></body></html>",
+        )
+        archive.writestr(
+            "OPS/one.xhtml",
+            "<html xmlns='http://www.w3.org/1999/xhtml'><body><p>Real passage.</p></body></html>",
+        )
+    return path
 
 
 def test_action_receives_only_server_verified_visible_text(material, monkeypatch):
@@ -414,3 +450,45 @@ def test_plugin_exception_reason_is_returned(material, monkeypatch):
     )
     assert response.status_code == 503
     assert response.json()["detail"]["reason"] == "broken plugin"
+
+
+def test_quiz_action_rejected_on_empty_unit(monkeypatch, tmp_path: Path):
+    """B2 quality gate: a unit with no extractable text (cover, scanned page)
+    must fail fast with 422 instead of a runtime 503 from the model call."""
+    monkeypatch.setenv("DEEPTUTOR_HOME", str(tmp_path))
+    PathService.reset_instance()
+    manifest = ReadingStore().ingest(_epub_with_empty_unit(tmp_path))
+    try:
+
+        def run(action, context):
+            return ReadingExtensionResult(type="quiz", payload={"questions": []})
+
+        client = _client(monkeypatch, _extension(run, result_types=("quiz",), id="quiz"))
+        response = client.post(
+            f"/api/reading/materials/{manifest.material_id}/extensions/quiz/actions/open",
+            json={"locator": 1, "locale": "en"},
+        )
+        assert response.status_code == 422
+        assert "no extractable text" in response.json()["detail"]
+    finally:
+        PathService.reset_instance()
+
+
+def test_unit_endpoint_marks_empty_units(material, monkeypatch, tmp_path: Path):
+    from deeptutor.api.routers import reading as reading_router_module
+
+    monkeypatch.setenv("DEEPTUTOR_HOME", str(tmp_path))
+    PathService.reset_instance()
+    try:
+        manifest = ReadingStore().ingest(_epub_with_empty_unit(tmp_path))
+        app = FastAPI()
+        app.include_router(reading_router_module.router, prefix="/api/reading")
+        client = TestClient(app)
+        empty = client.get(f"/api/reading/materials/{manifest.material_id}/units/1").json()
+        assert empty["empty"] is True
+        assert empty["char_count"] == 0
+        filled = client.get(f"/api/reading/materials/{manifest.material_id}/units/2").json()
+        assert filled["empty"] is False
+        assert filled["char_count"] > 0
+    finally:
+        PathService.reset_instance()
