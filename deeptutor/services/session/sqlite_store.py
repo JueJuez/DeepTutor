@@ -3585,10 +3585,12 @@ class SQLiteSessionStore:
                 (origin_type, origin_ref, turn_id, question_id),
             ).fetchone()
             occurred_at = float(attempt.get("occurred_at") or time.time())
-            is_latest = latest is None or (occurred_at, attempt_id) >= (
-                float(latest["occurred_at"]),
-                str(latest["attempt_id"]),
-            )
+            # Arrival-order tie-break: attempt_id is a content hash whose
+            # lexicographic order says nothing about submission order, so it
+            # must not decide which same-timestamp attempt owns the card.
+            # A retry of an already-stored attempt never reaches this line
+            # (the duplicate-id branch above returns first).
+            is_latest = latest is None or occurred_at >= float(latest["occurred_at"])
             conn.execute(
                 """
                 INSERT INTO assessment_attempts (
