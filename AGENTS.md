@@ -2,6 +2,11 @@
 
 ## Overview
 
+Local PDF / EPUB learning MVP planning and cross-session handoff:
+[docs/personal-learning-mvp.md](docs/personal-learning-mvp.md).
+Read it before implementing the personal book-learning extension; it tracks
+validation and gaps separately from upstream features.
+
 DeepTutor is an **agent-native** intelligent learning companion organized
 around a two-layer plugin model — single-shot **Tools** invoked by the
 LLM, and multi-stage **Capabilities** that take over a turn — exposed
