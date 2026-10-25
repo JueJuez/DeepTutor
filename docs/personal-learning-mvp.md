@@ -1,6 +1,6 @@
 # PDF / EPUB 个人学习助手：验证与开发计划
 
-更新：2026-10-25。状态：O0 完成；O1/O2/O3 有界交付；R1 事务快照与自动补偿已实施并补完整合验证（1344 passed，见执行记录 13）；**R2 持久预算门禁、R3 底层 HTTP 计量、R4 旧辅助条件未知语义已实施并离线验证（见执行记录 13）**。预算门禁覆盖 factory 与 agentic 两个入口、默认关闭，未覆盖入口与费用估算边界逐项列明；O3 范围外项保留。B0/B1 真实模型闭环、B3 语义审核、B4 未覆盖项及 B5 延迟试用仍待验，不代表整体 MVP 完成。开发分支为 `codex/learning-offline`，本地隔离 worktree 为 `C:\Users\O1830\.codex\worktrees\learning-offline\DeepTutor`；R1–R4 改动（含测试与本文）已按用户指令提交并推送至 fork，提交与远端 SHA 以实际 Git 核对及 `fork/codex/learning-offline` tracking ref 为准，接手先核对、不重置或覆盖。原工作区数据和未提交计划保留。
+更新：2026-10-25。状态：O0 完成；O1/O2/O3 有界交付；R1 事务快照与自动补偿已实施并补完整合验证（1344 passed，见执行记录 13）；**R2 持久预算门禁、R3 底层 HTTP 计量、R4 旧辅助条件未知语义已实施并离线验证（见执行记录 13）**。预算门禁覆盖 factory 与 agentic 两个入口、默认关闭，未覆盖入口与费用估算边界逐项列明；O3 范围外项保留。**B0/B1 真实模型闭环已按 9.5 协议用真实 PDF/EPUB 各一小单元走通并人工语义审核通过（见执行记录 14，真实调用通过）；发现 thinking 流泄露与 reading_references 未挂载两个缺口待修；B5 延迟试用未开始，不代表整体 MVP 完成。**开发分支为 `codex/learning-offline`，本地隔离 worktree 为 `C:\Users\O1830\.codex\worktrees\learning-offline\DeepTutor`；R1–R4 改动（含测试与本文）已按用户指令提交并推送至 fork，提交与远端 SHA 以实际 Git 核对及 `fork/codex/learning-offline` tracking ref 为准，接手先核对、不重置或覆盖。原工作区数据和未提交计划保留。
 
 本文是本地个人学习扩展的需求、任务状态与新会话交接真源，由项目使用者和后续开发会话共同维护。每批结束更新本文中的证据、缺口和下一步；不另起重复任务清单。
 
@@ -78,10 +78,10 @@
 
 | 批次 | 工作与交付物 | 放行证据 | 当前状态 |
 |---|---|---|---|
-| B0 本机运行基线 | 检查 Python/Node/包管理器、端口、已有配置与数据；按本仓库安装启动；配置一个主模型；导入一个 PDF 和一个 EPUB | 原书可读，一次小范围模型交互可用；记录运行命令、依赖障碍、usage/未知项和原有缺陷 | 部分完成：安装启动、自制样本及真实 PDF/EPUB 导入定位已验证；主模型与真实交互待额度恢复 |
-| B1 现成闭环与差距核验 | 各选一个单元，走阅读→学习路径→独立回答→应用反馈→到期复习；逐项填第 3 节证据；读 scheduler、存储与相关测试 | 每项明确“复用／需修复／未知”；有实际复现和最小修复范围，不能仅引用 README | O1 已做真实 SQLite、接口和跨进程专项；R1 新记录自动补偿已实施，无快照历史记录仍有边界，真实单元闭环待模型就绪 |
-| B2 来源与作答可信链 | 仅修复已确认的定位、版本、异常材料、答案隔离和原始作答保存问题 | 一个单元引用可靠；提交前网络响应无答案；刷新/重启恢复；错误与缺证据不能升级掌握 | 既有三项修复保留；O1 追加修复 reading 答案键隔离，恢复与并发专项离线通过；真实流程待验 |
-| B3 反馈、掌握与复习 | 补齐实际缺失的语义评估边界、辅助条件、覆核、事件幂等和日程一致性 | 正确/错误/部分正确/等价表达/不知道均经审核；并发与重复提交、覆核重算、时区测试通过 | O1 修复并发初始化、辅助条件投影并验证重复覆核；R1 覆核自动补偿已实施；R4 将旧记录辅助条件收紧为显式"未知"、不被刷新/重试升级为独立通过。语义质量待真实闭环 |
+| B0 本机运行基线 | 检查 Python/Node/包管理器、端口、已有配置与数据；按本仓库安装启动；配置一个主模型；导入一个 PDF 和一个 EPUB | 原书可读，一次小范围模型交互可用；记录运行命令、依赖障碍、usage/未知项和原有缺陷 | **真实调用通过（执行记录 14）**：主模型 CommandCode deepseek-v4-flash 配置并连通；真实 PDF/EPUB 导入定位复核；小范围交互与 usage 记录可用（cost=unknown 为已知口径） |
+| B1 现成闭环与差距核验 | 各选一个单元，走阅读→学习路径→独立回答→应用反馈→到期复习；逐项填第 3 节证据；读 scheduler、存储与相关测试 | 每项明确“复用／需修复／未知”；有实际复现和最小修复范围，不能仅引用 README | **真实调用通过（执行记录 14）**：两种格式各一单元走通 阅读→quiz→作答→判分→持久化→幂等 与 掌握路径→独立作答→语义反馈→复习队列生成；浏览器流程与跨天复习推进仍未验 |
+| B2 来源与作答可信链 | 仅修复已确认的定位、版本、异常材料、答案隔离和原始作答保存问题 | 一个单元引用可靠；提交前网络响应无答案；刷新/重启恢复；错误与缺证据不能升级掌握 | 既有三项修复保留；O1 追加修复 reading 答案键隔离，恢复与并发专项离线通过；真实流程已验（执行记录 14：题卡公开 payload 无答案键、revision/hints 落盘）；**新发现 thinking 流可含答案标记、reading_references 未挂载正文，待修** |
+| B3 反馈、掌握与复习 | 补齐实际缺失的语义评估边界、辅助条件、覆核、事件幂等和日程一致性 | 正确/错误/部分正确/等价表达/不知道均经审核；并发与重复提交、覆核重算、时区测试通过 | O1 修复并发初始化、辅助条件投影并验证重复覆核；R1 覆核自动补偿已实施；R4 将旧记录辅助条件收紧为显式"未知"。**语义审核（本会话人工）通过（执行记录 14）**：等价表达接受、错误判分与机制重讲、部分正确不冒充掌握均验证；覆核/时区真实调用场景未重演 |
 | B4 费用与数据保护 | 补齐预算检查、失败恢复、导出删除、备份恢复和升级兼容中的实际缺口 | 已支出加在途预留约束新任务；重试有界；未知费用可见；恢复能找回作答与引用 | O2 修复无关图片降级重调与通用摘要未知价格；O3 提供选定存储恢复。R2 已实现可配置的持久预算门禁（请求/Token/费用上限+在途预留+保守结算，默认关闭，覆盖 factory 与 agentic 入口，见执行记录 13）；R3 记录底层 HTTP 尝试数。未覆盖入口（fetch_models 等）、费用估算依赖静态价格表、全部导出删除/升级兼容仍未完成 |
 | B5 综合验收与个人试用 | 扩展样本，执行完整浏览器/接口流程、语义审核和真实延迟复测 | 技术、语义和个人试用分别给证据；未到至少 7 天复测日期保留待验证 | 未开始 |
 
@@ -319,6 +319,23 @@ B0/B1 发现可小范围修复的启动问题可在当前批处理并记录，�
 - **边界与未闭合**：预算门禁仅覆盖 factory 与 agentic create 两入口——`fetch_models` 等元数据调用、其他 SDK 直连未覆盖；费用为静态表估算非账单；预算无设置界面/CLI（直接编辑 JSON）；启用前零行为变化，**不据此放行付费任务，B4 预算项按"可配置防线已实现、全局硬预算未声称"记账**。R4 后旧记录在 notebook 卡片上仍显示 0 提示（整数契约边界，阶段/掌握判定已如实未知）。O3 范围外项（外部 KB、多 workspace、完整导出删除、升级兼容）维持 B4 未完成。真实模型闭环、语义审核、浏览器流程与 B5 延迟复测仍待额度恢复后按 9.5 执行。
 - **交付**：应用户指令，R1–R4 的代码、测试、README 与本文一并提交并推送至个人 fork 的 `codex/learning-offline`（不推上游或 main、不用 force）。提交前重跑了改动文件 Ruff 0.16.0 check/format、`scripts/check_repo_hygiene.py`、`git diff --check` 与 detect-secrets 1.5.0 扫描；当前虚拟环境缺 `pre_commit` 模块，未执行 pre-commit --all-files，未把检查缺席记为通过。本轮沿用本会话已实际跑出的整合/定向结果，未为提交重跑全套功能测试，未调用真实模型。提交与远端 SHA 以实际 Git 核对及本会话交付消息为准；不以提交代替验收，各批放行状态以本节记录为准。
 
+### 执行记录 14 2026-10-25（9.5 真实模型验收：PDF/EPUB 各一单元完整学习链，人工语义审核通过）
+
+- **现场与数据归属（接手先核对）**：worktree `codex/learning-offline / ba1715b9` 干净、已推 fork。主工作区 `main / cfb3e8d1` 的 8001（uvicorn）与 3782（Next standalone）服务**仍跑旧代码、用主工作区数据**，本轮全程未动。worktree 数据目录独立（DEEPTUTOR_HOME=worktree 根），本轮新建：从主工作区复制 `model_catalog.json`（conn-cmdcode / deepseek/deepseek-v4-flash，OpenAI 兼容 `https://api.commandcode.ai/provider/v1`，密钥在本地 settings 不进 Git）到 worktree `data/user/settings/`（已核对 git-ignore），`llm_budget.json` 保持 `enabled=false`（按用户指令未开预算门禁）。以 worktree venv 在 **127.0.0.1:8002** 起隔离后端跑当前代码，验收后已停。
+- **连接与计量**：CLI chat 小交互成功（20.6k tokens）；usage ledger 按调用记录模型名/状态/`attempts`（R3 计量生效），未知成本如实显示 cost=unknown（O2 口径）。
+- **PDF（material `cd182bf9e84a911a`，单元 62「1.5.1 梯度下降：基础」）**：quiz 生成 3 道选择题，逐题对照单元全文人工审核——全部可答、引用成立；公开 payload 仅含 id/prompt/choices/material_revision，无正确项/解释（O1 隔离修复在真实响应生效）。作答 2 对 1 错：判分与星级正确；`assessment_attempts` 落 revision=1、hints_used=0、原始选项文本与 section_id=62；同 submission_id 重试幂等（不新增 attempt、attempt_count=1、奖励不重复）；Notebook 投影 3 条。
+- **掌握路径（PDF，会话 `unified_1792941600093_680d460f`）**：tutor 经 SDK 驱动（`mastery_path` capability，题卡以下一轮 `mastery_answer` 回答）建 5 知识点路径并逐题考核，共 10 次交互、8 个回合。① 换说法的等价表达（一阶泰勒+柯西–施瓦茨论证负梯度方向）被语义评估**满分接受**；② 故意机制性错误（"学习率大更稳定"）被判错、kp3 归 0、error_record 建立，反馈定位为"机制理解颠倒"并用数值表格重讲，变式重考后恢复 1.0；③ 5 个 KP 全部过门槛，复习队列按指数遗忘生成（kp3 约 9.5h 后到期，失败 KP 间隔更短）；④ R1 outbox 13 条、Notebook 投影 13 条。
+- **EPUB（material `d9508cc08c037ea5`《提问的艺术》）**：真实空单元 unit 1 → quiz 生成 **422 拦截**、unit 端点返回 `empty: true / char_count: 0`（B2 修复在真书生效）。单元 5（引言）quiz 3 题逐题审核可答、引用成立（Q2"损者"为原书自带译法，题目忠实原文）；作答 2 对 1 错，判分、reward、attempt 记录（rev=1、section=spine locator）全部正确。
+- **掌握路径（EPUB，会话 `unified_1792942688827_0b8fe6b4`）**：把单元节选贴给 tutor 后建 2-KP 小路径。kp0 开放题换说法作答过门；kp1 应用题**部分正确被判 partial**——反馈区分"揪对假设"与"问题仍可从报表取数、未掀开前提"两个层次，给标尺与示范后出同型变式；会话收尾如实报告"kp1 还开着，没算过"，不冒充掌握。
+- **消耗**：全程 **58 次 LLM 调用，1,070,698 tokens**（prompt 991,101 / completion 79,597；大量 cache 读），ledger HTTP attempts=58=调用数（无隐藏重试）。分项：小连接 ~2.1 万；PDF quiz 链 ~2.4 万；PDF 掌握路径 ~48 万；EPUB quiz 链 ~1.5 万；EPUB 掌握路径 ~53 万。掌握路径 agentic 回合是成本大头（单回合 2.6 万–10.6 万 tokens）。
+- **发现（未修复，待用户裁决优先级）**：
+  1. **thinking 事件流可含答案标记**：tutor 组题时的模型推理流（`thinking` 事件，客户端可见且随 turn 持久化）出现 `expected_answer: A` 等字样（events.jsonl 中 10 处命中）。题卡与判分键都在服务端，但若前端在作答前渲染 thinking 即构成作答前线索，属 B2"作答前响应不泄露"口径的新缺口（本轮验收事件日志在 worktree `data/mastery-pdf-u62/events.jsonl`，git-ignored）。
+  2. **reading_references 未挂载正文**：`TurnRequest.reading_references(material, revision, locators)` 传入后 tutor 自述读不到材料（工作区/知识库均无），路径目标从模型通识生成（`source_grounded: false`）；把原文贴进消息后教学正常，但 `source_grounded` 仍为 false——该标志与实际依据脱节。掌握路径的"来源与版本"契约（目标锚定原文、引用可回原文）在真实流程尚未闭合。
+  3. 题目质量小疵：个别选择题选项自带解释近乎自曝正确项（PDF 单元 62 第 2 题选项 A）；不影响可答性，属教学优化范畴。
+- **状态判定**：B0/B1 两种格式的"真实调用通过"；B3 语义审核（本会话人工审核两单元全部题目/反馈/引用）通过；本轮未做浏览器端完整流程、未到 7 天延迟复测日期、B4 未覆盖项维持原状——**不标整体 MVP 完成**。下一批次二选一：先修发现 1/2（答案隔离与材料挂载），或先进入教学优化（题目质量/提示词）；听用户裁决。验收产物：worktree `data/mastery-pdf-u62/`、`data/mastery-epub-u5/`（事件 JSONL、驱动脚本 `data/mastery_driver.py`），均在 git-ignore 范围。
+- **交付**：应用户指令，本文（执行记录 14 + 第 5/10 节状态）作为唯一改动提交并推送至 fork `codex/learning-offline`（不推上游/main、不用 force）。本轮只改文档，未改功能代码，未重跑功能测试；真实调用消耗以本记录与 usage ledger 为准。第 10 节续接指令已重写为新会话接手口径。
+
+
 ## 9. 等待额度期间：离线可靠性优化实施计划
 
 ### 9.1 目标、边界与执行顺序
@@ -409,6 +426,6 @@ R1–R4 的开发与离线契约完成后，才可报告相应离线缺口关闭
 
 ## 10. 新会话可直接使用的指令
 
-**交付位置（2026-10-25）**：origin 为上游 `HKUDS/DeepTutor`，个人 fork remote 为 `fork`（`git@github.com:JueJuez/DeepTutor.git`）。R1–R4 改动（代码、测试、README 与本文）已按用户指令提交并推送至 `fork/codex/learning-offline`；接手先用 `git status --short`、`git log -1 --oneline` 和 tracking ref 核对实际基线与未提交改动，保留现场成果。最新代码与本文在 `C:\Users\O1830\.codex\worktrees\learning-offline\DeepTutor`，本地分支 `codex/learning-offline`。原工作区仍为 `main / cfb3e8d1`，只维护续接指针，原稿及数据保留；不要重置主工作区或重复实施已有修复。后续提交/push 按该会话用户指令处理，不推上游或 main。
+**交付位置（2026-10-26）**：origin 为上游 `HKUDS/DeepTutor`，个人 fork remote 为 `fork`（`git@github.com:JueJuez/DeepTutor.git`）。R1–R4（基线 `ba1715b9`）与本轮真实模型验收的文档更新（执行记录 14）已按用户指令提交并推送至 `fork/codex/learning-offline`；提交与远端 SHA 以实际 Git 核对及 tracking ref 为准。接手先用 `git status --short`、`git log -1 --oneline` 和 tracking ref 核对实际基线与未提交改动，保留现场成果。最新代码与本文在 `C:\Users\O1830\.codex\worktrees\learning-offline\DeepTutor`，本地分支 `codex/learning-offline`。原工作区仍为 `main / cfb3e8d1`，其 8001/3782 运行服务为旧代码 + 主工作区数据；不要重置主工作区或重复实施已有修复。后续提交/push 按该会话用户指令处理，不推上游或 main。真实验收的隔离运行方式、驱动脚本与事件日志（git-ignored）见执行记录 14 末段。
 
-> 请在现有隔离 worktree C:\Users\O1830\.codex\worktrees\learning-offline\DeepTutor 的 codex/learning-offline 分支续接 PDF/EPUB 个人学习助手。先读 AGENTS.md、CONTRIBUTING.md、本文执行记录 13 与 9.6，必要时回看 6–12，用 git status --short、git log -1 --oneline 和 fork tracking ref 核对基线；R1–R4（事务快照补偿、预算门禁、HTTP 尝试计量、旧辅助条件 tri-state）已提交推送，不重做已通过修复。离线可开发范围（R1–R4）已完成并有防线测试；剩余小批见 9.6 末尾（预算设置界面、未覆盖入口、O3 范围外项），仅在用户要求时推进。用户模型额度恢复后，按 9.5 核实服务商/模型/预算与运行代码，先做一次小范围连接与交互，再用真实 PDF、EPUB 各一个单元验证完整学习链，审核全部题目/反馈和引用，记录消耗；预算门禁启用方式为编辑 data/user/settings/llm_budget.json（enabled 与各上限，见执行记录 13），默认关闭。保护原工作区数据及未提交计划；不调用真实付费模型、不绕过额度或更换服务商，不扩教学提示词/评分/调度算法。B4 范围外项与 B5 至少 7 天延迟复测继续保留。当前授权是续接剩余工作；提交/push 按该会话用户指令处理。
+> 请在现有隔离 worktree C:\Users\O1830\.codex\worktrees\learning-offline\DeepTutor 的 codex/learning-offline 分支续接 PDF/EPUB 个人学习助手。先读 AGENTS.md、CONTRIBUTING.md、本文执行记录 14 与第 5 节，必要时回看 12–13，用 git status --short、git log -1 --oneline 和 fork tracking ref 核对基线；R1–R4 与 9.5 真实模型验收（B0/B1 真实调用通过、B3 语义审核人工通过，见执行记录 14）均已完成，不重做。**下一批次二选一，听用户拍板**：① 先修执行记录 14 的两个发现——thinking 事件流可含 `expected_answer` 答案标记（作答前线索，B2 口径新缺口）与 `reading_references` 未把单元正文挂载给掌握路径 tutor（`source_grounded` 恒 false，路径目标非原文生成）；② 进入教学优化（题目质量如选项自曝、提示词）。修缺口属 B2 范围内修复，可小批实施并配防线测试；教学优化不调调度公式，不批量建题库。运行方式：worktree 根 `.venv/Scripts/deeptutor.exe serve --host 127.0.0.1 --port 8002`（独立数据目录，模型配置已在 `data/user/settings/model_catalog.json`，CommandCode deepseek-v4-flash）；headless 驱动见执行记录 14。预算门禁默认关闭（`data/user/settings/llm_budget.json`），启用先问用户。B5 至少 7 天延迟复测、浏览器完整流程与 B4 范围外项继续保留；MVP 未完成，不为让状态变绿放行。当前授权是续接优化；提交/push 按该会话用户指令处理，不推上游或 main。
