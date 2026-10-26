@@ -140,7 +140,14 @@ async def _build(path_id: str, modules: list[dict]) -> dict:
 
 
 @pytest.mark.asyncio
-async def test_open_question_tool_content_and_metadata_withhold_key(path_id):
+async def test_open_question_tool_content_and_metadata_withhold_key(path_id, monkeypatch):
+    from deeptutor.learning import semantic_assessment
+
+    async def review(_config, _instruction, payload, **_kwargs):
+        assert payload["question"]["explanation"]
+        return {"supported": True, "explanation_valid": True, "citations": []}
+
+    monkeypatch.setattr(semantic_assessment, "_request", review)
     await _build(
         path_id,
         [{"name": "Synthetic", "knowledge_points": [{"name": "Concept", "type": "memory"}]}],

@@ -486,8 +486,11 @@ def _topic_material_manifest(path_id: str) -> tuple[str, dict[str, str]]:
         if progress is None:
             return "", {}
         topic = store.get_topic(path_id, progress=progress)
+        reading_manifest, reading_index = _reading_reference_manifest(
+            getattr(progress, "reading_references", [])
+        )
         if topic is None or not topic.sources:
-            return "", {}
+            return reading_manifest, reading_index
         materials = build_topic_materials(topic.sources)
         if materials.warnings:
             logger.warning(
@@ -496,10 +499,68 @@ def _topic_material_manifest(path_id: str) -> tuple[str, dict[str, str]]:
                 len(materials.warnings),
                 ", ".join(materials.warnings),
             )
-        return render_topic_manifest(materials)
+        manifest, index = render_topic_manifest(materials)
+        return _merge_mastery_source_mounts(manifest, index, reading_manifest, reading_index)
     except Exception:
         logger.exception("Failed to build topic materials for mastery path %s", path_id)
         return "", {}
+
+
+def _reading_reference_manifest(
+    references: Sequence[dict[str, Any]],
+) -> tuple[str, dict[str, str]]:
+    """Resolve this turn's reading references into (manifest, read_source index).
+
+    Non-chat turns skip the chat source-inventory path, so reading references
+    sent with a mastery turn were silently dropped and the tutor taught from
+    parametric memory while claiming to teach the open book. Resolution goes
+    through the current user's ReadingStore — the same isolation contract as
+    chat: text is never taken from the request, a deleted material or unknown
+    revision yields no row, and nothing fails the turn over it.
+    """
+    if not references:
+        return "", {}
+    try:
+        from deeptutor.reading.references import resolve_reading_sources
+
+        sources = resolve_reading_sources(list(references))
+    except Exception:
+        logger.exception("Failed to resolve reading references for a mastery turn")
+        return "", {}
+    if not sources:
+        return "", {}
+    rows = [
+        f"- id={source.source_id}  type=reading  name={source.name!r}"
+        f"  size={len(source.full_text):,} chars"
+        for source in sources
+    ]
+    header = (
+        "[Reading Sources]\n"
+        "Units the learner has open in the reader for this turn. They are ground "
+        "truth for what the learner is looking at — same rule as topic materials: "
+        "call read_source(id) for the one a knowledge point actually needs."
+    )
+    return header + "\n\n" + "\n\n".join(rows), {
+        source.source_id: source.full_text for source in sources
+    }
+
+
+def _merge_mastery_source_mounts(
+    topic_manifest: str,
+    topic_index: dict[str, str],
+    reading_manifest: str,
+    reading_index: dict[str, str],
+) -> tuple[str, dict[str, str]]:
+    """Combine a topic's materials with this turn's reading references.
+
+    Fresh turn references shadow topic materials on a sid collision, matching
+    the chat-path precedence for materials the learner attached to the current
+    turn.
+    """
+    if not reading_index:
+        return topic_manifest, topic_index
+    manifest = f"{topic_manifest}\n\n{reading_manifest}" if topic_manifest else reading_manifest
+    return manifest, {**topic_index, **reading_index}
 
 
 def _reading_action_context(

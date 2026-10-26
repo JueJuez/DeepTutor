@@ -290,6 +290,9 @@ class PendingQuestion(BaseModel):
     difficulty: str = ""
     # Server-side provenance snapshot; never projected onto an answer card.
     source_evidence: dict[str, Any] = Field(default_factory=dict)
+    # A content-review receipt is not source provenance. In particular a
+    # source-free consistency check must never make a path source-grounded.
+    content_review: dict[str, Any] = Field(default_factory=dict)
     # Server-owned exposure evidence, independent of visual-task metadata.
     # Never included in the learner's question/answer-key projection.
     assistance_used: bool = False
@@ -649,6 +652,9 @@ class LearningProgress(BaseModel):
     knowledge_types: dict[str, KnowledgeType] = Field(default_factory=dict)
     lesson_evidence: dict[str, dict[str, Any]] = Field(default_factory=dict)
     source_grounded: bool = False
+    # Last explicitly selected, successfully reviewed reading-unit scope.
+    # Original revisions stay pinned when a later turn has no fresh selection.
+    reading_references: list[dict[str, Any]] = Field(default_factory=list)
     # Exact pages authorized for learner display, kept with the native path.
     # A private retrieval or lesson packet is not a public exposure receipt.
     source_exposures: list[dict[str, Any]] = Field(default_factory=list)

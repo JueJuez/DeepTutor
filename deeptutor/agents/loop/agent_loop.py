@@ -1164,6 +1164,11 @@ class AgentLoop:
             ),
         )
 
+        # Assessment-capable turns can reason about future answer keys in any
+        # round, including preparation rounds with no quiz call. Their private
+        # reasoning stays provider-side; learner-facing teaching still streams.
+        private_thinking = self.pipeline._capability_private_thinking(self.context)
+
         kwargs: dict[str, Any] = {
             "model": self.pipeline.model,
             "messages": projected_messages,
@@ -1265,6 +1270,13 @@ class AgentLoop:
             visible_text_parts: list[str] = []
             output_emitted = False
 
+            async def _emit_thinking_segment(text: str) -> None:
+                if private_thinking:
+                    return
+                await self.stream.thinking(
+                    text, source=self.source, stage=stage, metadata=chunk_meta
+                )
+
             async def _emit_segments(segments: list[tuple[str, str]]) -> None:
                 nonlocal action_started, content_chars, output_emitted
                 nonlocal reasoning_chars
@@ -1277,9 +1289,7 @@ class AgentLoop:
                         reasoning_chars += len(segment)
                         output_emitted = True
                         await _ensure_reasoning_progress_task()
-                        await self.stream.thinking(
-                            segment, source=self.source, stage=stage, metadata=chunk_meta
-                        )
+                        await _emit_thinking_segment(segment)
                         await _maybe_emit_reasoning_progress()
                         continue
                     if segment.strip():
@@ -1426,12 +1436,7 @@ class AgentLoop:
                             output_chars += len(provider_reasoning)
                             output_emitted = True
                             await _ensure_reasoning_progress_task()
-                            await self.stream.thinking(
-                                provider_reasoning,
-                                source=self.source,
-                                stage=stage,
-                                metadata=chunk_meta,
-                            )
+                            await _emit_thinking_segment(provider_reasoning)
                             await _maybe_emit_reasoning_progress()
                         if not reasoning_parts:
                             for item in native_items or []:
@@ -1445,12 +1450,7 @@ class AgentLoop:
                                 output_chars += len(item_reasoning)
                                 output_emitted = True
                                 await _ensure_reasoning_progress_task()
-                                await self.stream.thinking(
-                                    item_reasoning,
-                                    source=self.source,
-                                    stage=stage,
-                                    metadata=chunk_meta,
-                                )
+                                await _emit_thinking_segment(item_reasoning)
                                 await _maybe_emit_reasoning_progress()
                     delta = getattr(choice, "delta", None)
                     if delta is None:
@@ -1467,9 +1467,7 @@ class AgentLoop:
                         output_chars += len(reasoning_text)
                         output_emitted = True
                         await _ensure_reasoning_progress_task()
-                        await self.stream.thinking(
-                            reasoning_text, source=self.source, stage=stage, metadata=chunk_meta
-                        )
+                        await _emit_thinking_segment(reasoning_text)
                         await _maybe_emit_reasoning_progress()
 
                     content = getattr(delta, "content", None)

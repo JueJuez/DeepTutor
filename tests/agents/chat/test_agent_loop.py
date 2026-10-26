@@ -1680,6 +1680,15 @@ async def test_mastery_card_promise_repair_uses_real_question_tool(
     repair: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """A text-only claim repairs to a durable card or a bounded failed turn."""
+
+    async def review(_config, _instruction, payload, **_kwargs):
+        assert (
+            payload["question"]["explanation"]
+            == "The largest value 3 moves to the end in this pass."
+        )
+        return {"supported": True, "explanation_valid": True, "citations": []}
+
+    monkeypatch.setattr("deeptutor.learning.semantic_assessment._request", review)
     monkeypatch.setenv("DEEPTUTOR_WORKSPACE_ROOT", str(tmp_path))
 
     def init_store(self: LearningStore, root: Path | None = None) -> None:
@@ -1878,7 +1887,8 @@ async def test_mastery_preparation_at_settlement_boundary_gets_one_delivery_roun
     )
     prepared = False
 
-    async def verify(_store, _progress, _questions, config=None):
+    async def verify(_store, _progress, _questions, config=None, *, reading_references=None):
+        assert not reading_references  # This settlement fixture has no reader selection.
         if not prepared or recovery == "unsupported":
             raise semantic_assessment.AssessmentUnavailable(
                 "Synthetic unsupported source contract."
@@ -4270,3 +4280,95 @@ async def test_image_fallback_strips_all_canonical_copies_after_wire_deduplicati
     assert not has_image_parts(messages)
     assert context.extension("source_visual_evidence")["image_hashes"] == []
     assert "Repeated image" not in str(messages)
+
+
+@pytest.mark.asyncio
+async def test_assessment_turn_withholds_reasoning_even_without_quiz_tool(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """B2 isolation includes preparation and later rounds without a quiz call.
+
+    Any round can plan a future answer key. All private deliberation stays off
+    the event stream while ordinary teaching content is still delivered.
+    """
+    client = _ScriptedChatClient(
+        [
+            [
+                _llm_chunk(
+                    reasoning_content="the correct option is B, never show this",
+                    tool_calls=[
+                        {"id": "quiz-1", "name": "web_search", "arguments": '{"query":"x"}'},
+                    ],
+                    finish_reason="tool_calls",
+                )
+            ],
+            [
+                _llm_chunk(
+                    reasoning_content="plain teaching reasoning",
+                    content="Here is the explanation.",
+                    finish_reason="stop",
+                )
+            ],
+        ]
+    )
+    pipeline = AgenticChatPipeline(language="en")
+    pipeline.registry = _Registry()
+    monkeypatch.setattr(pipeline, "_compose_enabled_tools", lambda _context: ["web_search"])
+    monkeypatch.setattr(pipeline, "_build_openai_client", lambda: client)
+    monkeypatch.setattr(
+        AgenticChatPipeline,
+        "_capability_private_thinking",
+        lambda self, _context: True,
+    )
+
+    events = await _run(pipeline, UnifiedContext(session_id="s1", user_message="Quiz me"))
+
+    thinking = "".join(e.content for e in events if e.type == StreamEventType.THINKING)
+    assert "correct option is B" not in thinking
+    assert thinking == ""
+    assert "Here is the explanation." in _contents(events)
+
+
+@pytest.mark.asyncio
+async def test_reasoning_streams_live_without_hold_tools(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Ordinary chat still streams reasoning when no capability keeps it private."""
+    client = _ScriptedChatClient(
+        [
+            [
+                _llm_chunk(
+                    reasoning_content="the correct option is B, never show this",
+                    tool_calls=[
+                        {"id": "quiz-1", "name": "web_search", "arguments": '{"query":"x"}'},
+                    ],
+                    finish_reason="tool_calls",
+                )
+            ],
+            [
+                _llm_chunk(
+                    reasoning_content="plain teaching reasoning",
+                    content="Here is the explanation.",
+                    finish_reason="stop",
+                )
+            ],
+        ]
+    )
+    pipeline = AgenticChatPipeline(language="en")
+    pipeline.registry = _Registry()
+    monkeypatch.setattr(pipeline, "_compose_enabled_tools", lambda _context: ["web_search"])
+    monkeypatch.setattr(pipeline, "_build_openai_client", lambda: client)
+
+    events = await _run(pipeline, UnifiedContext(session_id="s1", user_message="Quiz me"))
+
+    thinking = "".join(e.content for e in events if e.type == StreamEventType.THINKING)
+    assert "correct option is B" in thinking
+    assert "plain teaching reasoning" in thinking
+
+
+def test_mastery_declares_private_thinking_for_entire_turn() -> None:
+    context = UnifiedContext(session_id="s", user_message="x", metadata={"mastery_mode": True})
+    pipeline = AgenticChatPipeline(language="en")
+    assert pipeline._capability_private_thinking(context) is True
+    plain = UnifiedContext(session_id="s", user_message="x")
+    assert pipeline._capability_private_thinking(plain) is False

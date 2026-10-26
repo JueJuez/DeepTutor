@@ -860,6 +860,18 @@ class AgenticLoopPipeline:
             names.extend(getattr(cap, "rebinding_tools", ()) or ())
         return frozenset(names)
 
+    def _capability_private_thinking(self, context: UnifiedContext) -> bool:
+        """Keep assessment-capable turns' deliberation off client event streams.
+
+        A future answer can be planned before the round that calls the quiz
+        tool, so reasoning cannot be released based on that round's tool names.
+        This only controls public events, never provider reasoning replay.
+        """
+        return any(
+            getattr(cap, "private_thinking", False)
+            for cap in self._active_loop_capabilities(context)
+        )
+
     def _capability_system_blocks(self, context: UnifiedContext):
         blocks = []
         for cap in self._active_loop_capabilities(context):

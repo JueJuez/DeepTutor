@@ -9,6 +9,10 @@ from tests.capabilities.test_mastery_question_groups import group, leaf
 pytest_plugins = ["tests.capabilities.test_mastery_question_groups"]
 
 
+async def _accept_content_review(config, instruction, payload, **kwargs):
+    return {"supported": True, "explanation_valid": True, "citations": []}
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize("result,quality", [("partial", 0.5), ("incorrect", 0.0)])
 async def test_qualitative_bank_preserves_typed_result(monkeypatch, result, quality):
@@ -71,6 +75,8 @@ def test_loop_seed_preserves_partial_and_clarification_receipts(grouped):
 async def test_corrected_key_does_not_inherit_old_aliases(service, monkeypatch):
     from deeptutor.learning import semantic_assessment as semantic
 
+    monkeypatch.setattr(semantic, "_request", _accept_content_review)
+
     question = leaf(expected="alpha")
     question.accepted_answers = ["alpha", "first letter"]
     service.register_question("p", question)
@@ -100,6 +106,8 @@ async def test_challenged_group_grade_reassesses_saved_answer_and_repairs_all_re
     service, monkeypatch
 ):
     from deeptutor.learning import semantic_assessment as semantic
+
+    monkeypatch.setattr(semantic, "_request", _accept_content_review)
 
     service.register_question("p", group())
     # Historical lexical judgment incorrectly rejected a correct explanation.
@@ -381,6 +389,7 @@ async def test_partial_packet_binds_only_exact_question_and_rejects_forged_origi
     async def request(*args, **kwargs):
         return {
             "supported": True,
+            "explanation_valid": True,
             "citations": [{"index": 0, "quote": "alpha is the first letter"}],
             "provenance": "original",
         }
@@ -405,7 +414,11 @@ async def test_question_support_must_quote_real_evidence(service, monkeypatch):
     monkeypatch.setattr(lesson_evidence, "validate_evidence", lambda *args, **kwargs: None)
 
     async def request(*args, **kwargs):
-        return {"supported": True, "citations": [{"index": 0, "quote": "fabricated fact"}]}
+        return {
+            "supported": True,
+            "explanation_valid": True,
+            "citations": [{"index": 0, "quote": "fabricated fact"}],
+        }
 
     monkeypatch.setattr(semantic, "_request", request)
     with pytest.raises(semantic.AssessmentUnavailable, match="absent"):
@@ -430,6 +443,7 @@ async def test_group_source_binding_is_one_call_with_individual_contracts(servic
                 {
                     "question_id": item["question"]["question_id"],
                     "supported": True,
+                    "explanation_valid": True,
                     "citations": [{"index": 0, "quote": "alpha and beta are letters"}],
                     "provenance": "adapted",
                 }
@@ -579,6 +593,7 @@ async def test_scoped_group_clarification_resume_and_exactly_once_credit(service
     async def support(*args, **kwargs):
         return {
             "supported": True,
+            "explanation_valid": True,
             "citations": [{"index": 0, "quote": "alpha and beta are letters"}],
             "provenance": "adapted",
         }

@@ -373,7 +373,9 @@ async def _sync_mastery_attempt_to_question_bank(
         is_correct_to_result,
         record_assessment,
     )
+    from deeptutor.learning.reading_evidence import reading_origin
 
+    origin = reading_origin(pending.source_evidence)
     record = AssessmentRecord(
         session_id=session_id,
         turn_id=turn_id,
@@ -389,10 +391,11 @@ async def _sync_mastery_attempt_to_question_bank(
         result=result or is_correct_to_result(is_correct),
         source="mastery_path",
         assessment_type="quiz",
-        material_id=path_id,
+        material_id=origin.get("material_id", path_id),
+        material_revision=origin.get("material_revision", 0),
         material_title=material_title,
-        section_id=pending.knowledge_point_id,
-        section_title=section_title,
+        section_id=origin.get("section_id", pending.knowledge_point_id),
+        section_title=origin.get("section_title", section_title),
         mastery_path_id=path_id,
         knowledge_point_id=pending.knowledge_point_id,
         attempt_count=attempt_count,
@@ -401,6 +404,7 @@ async def _sync_mastery_attempt_to_question_bank(
         response_time=response_time,
         quality=quality,
         visual_context=pending.visual_context,
+        source_evidence=pending.source_evidence,
     )
     try:
         await asyncio.wait_for(record_assessment(record), timeout=5.0)
@@ -1185,6 +1189,8 @@ class MasteryQuizTool(BaseTool):
                     type="string",
                     description=(
                         "Why the expected answer is right, in one or two sentences. "
+                        "Check every claim, sign and causal direction against the key and "
+                        "source; a correct option does not make its explanation correct. "
                         "Held server-side like expected_answer — never shown on the "
                         "card the learner is answering — and saved with the attempt "
                         "so a wrong answer is reviewable later in their question "
@@ -1269,6 +1275,11 @@ class MasteryQuizTool(BaseTool):
         return definition
 
     async def execute(self, **kwargs: Any) -> ToolResult:
+        if kwargs.get("_assessment_output_unavailable"):
+            return ToolResult(
+                content="The assessment returned no valid verdict this turn. Stop proposing replacement questions; no new card or grade was saved. Retry the assessment in a later turn after checking its output budget.",
+                success=False,
+            )
         refusal = _wrong_mode_result("mastery_quiz", kwargs)
         if refusal is not None:
             return refusal
@@ -1391,11 +1402,24 @@ class MasteryQuizTool(BaseTool):
 
         if pending is not None:
             from deeptutor.learning.lesson_evidence import LessonUnavailable
-            from deeptutor.learning.semantic_assessment import AssessmentUnavailable, bind_questions
+            from deeptutor.learning.semantic_assessment import (
+                AssessmentOutputUnavailable,
+                AssessmentUnavailable,
+                bind_questions,
+            )
 
             try:
-                await bind_questions(service.store, progress, pending.questions or [pending])
+                await bind_questions(
+                    service.store,
+                    progress,
+                    pending.questions or [pending],
+                    reading_references=kwargs.get("_mastery_reading_references"),
+                )
             except (AssessmentUnavailable, LessonUnavailable) as exc:
+                if isinstance(exc, AssessmentOutputUnavailable):
+                    mark = kwargs.get("_mark_assessment_output_unavailable")
+                    if callable(mark):
+                        mark()
                 return ToolResult(content=str(exc), success=False)
         try:
             progress, interaction, created = service.register_question(
@@ -3834,6 +3858,7 @@ class MasteryPrepareLessonTool(BaseTool):
                 focus=kwargs.get("focus") or "",
                 learner_request=str(kwargs.get("_learner_message") or "")[:1500],
                 refresh=kwargs.get("refresh", False),
+                reading_references=kwargs.get("_mastery_reading_references"),
             )
         except LessonUnavailable as exc:
             return ToolResult(content=str(exc), success=False)

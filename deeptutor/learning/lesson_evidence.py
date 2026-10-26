@@ -353,9 +353,30 @@ def validate_evidence(
 ) -> None:
     topic = store.get_topic(progress.book_id, progress=progress)
     scope = selected_scope(topic, progress, kp_id)
+    if evidence.get("kind") == "reading":
+        from deeptutor.learning.reading_evidence import validate_reading_packet
+
+        if scope:
+            raise LessonUnavailable("The selected source scope changed; prepare a new question.")
+        validate_reading_packet(progress, kp_id, evidence)
+        coverage = evidence.get("coverage", {})
+        full_objective = (
+            evidence.get("lesson_review")
+            and coverage.get("complete") is True
+            and coverage.get("scope") == "objective"
+        )
+        if not allow_partial and not evidence.get("assessment_contract") and not full_objective:
+            raise LessonUnavailable(
+                "Reading evidence needs exact question support review before grading."
+            )
+        return
     if not scope:
         if evidence:
             raise LessonUnavailable("This question's selected PDF materials have changed.")
+        if progress.reading_references:
+            raise LessonUnavailable(
+                "Prepare verified reading evidence before teaching or grading this objective."
+            )
         return
     if (
         not evidence
@@ -584,6 +605,7 @@ async def prepare_lesson(
     focus: str = "",
     learner_request: str = "",
     refresh: bool = False,
+    reading_references: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """No write transaction is held across retrieval or model calls."""
     from deeptutor.services.llm.capabilities import supports_vision
@@ -620,6 +642,17 @@ async def prepare_lesson(
     topic = await asyncio.to_thread(store.get_topic, path_id, progress=progress)
     scope = selected_scope(topic, progress, kp_id)
     if not scope:
+        references = reading_references or progress.reading_references
+        if references:
+            from deeptutor.learning.reading_evidence import prepare_reading_lesson
+            from deeptutor.learning.semantic_assessment import AssessmentUnavailable
+
+            try:
+                return await prepare_reading_lesson(
+                    store, progress, kp_id, config, references, focus=focus, refresh=refresh
+                )
+            except AssessmentUnavailable as exc:
+                raise LessonUnavailable(str(exc)) from exc
         if progress.lesson_evidence.get(kp_id):
             raise LessonUnavailable(
                 "This source-grounded path no longer has selected PDF materials."
@@ -1079,6 +1112,14 @@ async def prepare_lesson(
 
 
 def lesson_context(evidence: dict[str, Any]) -> str:
+    if evidence.get("kind") == "reading":
+        return (
+            "VERIFIED READING TEXT SOURCE PACKET. Cite material ID, content revision and unit locator. "
+            "This verifies text evidence only, not original-page pixel inspection or learner mastery. "
+            "Teach only the coverage shown: partial/focus packets do not establish full-objective "
+            "coverage. Each quiz key and explanation still needs its own exact-contract review.\n"
+            + json.dumps(evidence, ensure_ascii=False)
+        )
     return (
         "VERIFIED ACTIVE LESSON SOURCE PACKET (not a mastery result, and not evidence that an explanation was delivered). "
         "Use the learner's current request and teaching_guidance for pacing and explanatory depth; "
@@ -1103,4 +1144,16 @@ def lesson_context(evidence: dict[str, Any]) -> str:
 
 
 def public_sources(evidence: dict[str, Any]) -> list[dict[str, Any]]:
+    if evidence.get("kind") == "reading":
+        return [
+            {
+                "kind": "reading",
+                "source_id": row["source_id"],
+                "name": row["name"],
+                "material_id": row["reading_reference"]["material_id"],
+                "material_revision": row["reading_reference"]["revision"],
+                "locator": row["reading_reference"]["locators"][0],
+            }
+            for row in evidence.get("sources", [])
+        ]
     return [public_source(SourceRef.model_validate(s["ref"])) for s in evidence.get("sources", [])]

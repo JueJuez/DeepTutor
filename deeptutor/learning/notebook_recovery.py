@@ -92,6 +92,10 @@ def capture_notebook_assessment(
                 question and (question.assistance_used or question.visual_context.get("hints_used"))
             )
         )
+    from deeptutor.learning.reading_evidence import reading_origin
+
+    sources = question.source_evidence if question else progress.lesson_evidence.get(kp_id, {})
+    origin = reading_origin(sources)
     record = AssessmentRecord(
         session_id=session_id,
         turn_id=turn_id,
@@ -113,10 +117,11 @@ def capture_notebook_assessment(
         is_correct=result == "correct",
         source="mastery_path",
         assessment_type="qualitative" if qualitative else "quiz",
-        material_id=progress.book_id,
+        material_id=origin.get("material_id", progress.book_id),
+        material_revision=origin.get("material_revision", 0),
         material_title=progress.name,
-        section_id=kp_id,
-        section_title=kp.name if kp else "",
+        section_id=origin.get("section_id", kp_id),
+        section_title=origin.get("section_title", kp.name if kp else ""),
         mastery_path_id=progress.book_id,
         knowledge_point_id=kp_id,
         hints_used=assistance,
@@ -132,7 +137,7 @@ def capture_notebook_assessment(
         projection_sequence=event_id,
         correction_reason=str(payload.get("reason") or ""),
         previous_result=payload.get("previous_result") or {},
-        source_evidence=question.source_evidence if question else {},
+        source_evidence=sources,
     )
     return record.model_dump(mode="json")
 

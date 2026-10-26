@@ -1,6 +1,6 @@
 # PDF / EPUB 个人学习助手：验证与开发计划
 
-更新：2026-10-25。状态：O0 完成；O1/O2/O3 有界交付；R1 事务快照与自动补偿已实施并补完整合验证（1344 passed，见执行记录 13）；**R2 持久预算门禁、R3 底层 HTTP 计量、R4 旧辅助条件未知语义已实施并离线验证（见执行记录 13）**。预算门禁覆盖 factory 与 agentic 两个入口、默认关闭，未覆盖入口与费用估算边界逐项列明；O3 范围外项保留。**B0/B1 真实模型闭环已按 9.5 协议用真实 PDF/EPUB 各一小单元走通并人工语义审核通过（见执行记录 14，真实调用通过）；发现 thinking 流泄露与 reading_references 未挂载两个缺口待修；B5 延迟试用未开始，不代表整体 MVP 完成。**开发分支为 `codex/learning-offline`，本地隔离 worktree 为 `C:\Users\O1830\.codex\worktrees\learning-offline\DeepTutor`；R1–R4 改动（含测试与本文）已按用户指令提交并推送至 fork，提交与远端 SHA 以实际 Git 核对及 `fork/codex/learning-offline` tracking ref 为准，接手先核对、不重置或覆盖。原工作区数据和未提交计划保留。
+更新：2026-10-26。状态：O0 完成；O1/O2/O3 有界交付；R1 事务快照与自动补偿已实施并补完整合验证（1344 passed，见执行记录 13）；**R2 持久预算门禁、R3 底层 HTTP 计量、R4 旧辅助条件未知语义已实施并离线验证（见执行记录 13）**。预算门禁覆盖 factory 与 agentic 两个入口、默认关闭，未覆盖入口与费用估算边界逐项列明；O3 范围外项保留。**B0/B1 真实模型闭环已按 9.5 协议用真实 PDF/EPUB 各一小单元走通（见执行记录 14，真实调用通过）；B2 整回合推理隔离、阅读材料版本/定位/文本证据绑定已实现，并完成 PDF 与 EPUB 原文范围内的有限真实对照（执行记录 17、18）；不代表全部教学质量验收；本轮复核发现负梯度反馈解释错误，B3 语义质量重新打开（执行记录 16）；B5 延迟试用未开始，不代表整体 MVP 完成。**开发分支为 `codex/learning-offline`，本地隔离 worktree 为 `C:\Users\O1830\.codex\worktrees\learning-offline\DeepTutor`；R1–R4 改动（含测试与本文）已按用户指令提交并推送至 fork，提交与远端 SHA 以实际 Git 核对及 `fork/codex/learning-offline` tracking ref 为准，接手先核对、不重置或覆盖。原工作区数据和未提交计划保留。
 
 本文是本地个人学习扩展的需求、任务状态与新会话交接真源，由项目使用者和后续开发会话共同维护。每批结束更新本文中的证据、缺口和下一步；不另起重复任务清单。
 
@@ -80,8 +80,8 @@
 |---|---|---|---|
 | B0 本机运行基线 | 检查 Python/Node/包管理器、端口、已有配置与数据；按本仓库安装启动；配置一个主模型；导入一个 PDF 和一个 EPUB | 原书可读，一次小范围模型交互可用；记录运行命令、依赖障碍、usage/未知项和原有缺陷 | **真实调用通过（执行记录 14）**：主模型 CommandCode deepseek-v4-flash 配置并连通；真实 PDF/EPUB 导入定位复核；小范围交互与 usage 记录可用（cost=unknown 为已知口径） |
 | B1 现成闭环与差距核验 | 各选一个单元，走阅读→学习路径→独立回答→应用反馈→到期复习；逐项填第 3 节证据；读 scheduler、存储与相关测试 | 每项明确“复用／需修复／未知”；有实际复现和最小修复范围，不能仅引用 README | **真实调用通过（执行记录 14）**：两种格式各一单元走通 阅读→quiz→作答→判分→持久化→幂等 与 掌握路径→独立作答→语义反馈→复习队列生成；浏览器流程与跨天复习推进仍未验 |
-| B2 来源与作答可信链 | 仅修复已确认的定位、版本、异常材料、答案隔离和原始作答保存问题 | 一个单元引用可靠；提交前网络响应无答案；刷新/重启恢复；错误与缺证据不能升级掌握 | 既有三项修复保留；O1 追加修复 reading 答案键隔离，恢复与并发专项离线通过；真实流程已验（执行记录 14：题卡公开 payload 无答案键、revision/hints 落盘）；**新发现 thinking 流可含答案标记、reading_references 未挂载正文，待修** |
-| B3 反馈、掌握与复习 | 补齐实际缺失的语义评估边界、辅助条件、覆核、事件幂等和日程一致性 | 正确/错误/部分正确/等价表达/不知道均经审核；并发与重复提交、覆核重算、时区测试通过 | O1 修复并发初始化、辅助条件投影并验证重复覆核；R1 覆核自动补偿已实施；R4 将旧记录辅助条件收紧为显式"未知"。**语义审核（本会话人工）通过（执行记录 14）**：等价表达接受、错误判分与机制重讲、部分正确不冒充掌握均验证；覆核/时区真实调用场景未重演 |
+| B2 来源与作答可信链 | 仅修复已确认的定位、版本、异常材料、答案隔离和原始作答保存问题 | 一个单元引用可靠；提交前网络响应无答案；刷新/重启恢复；错误与缺证据不能升级掌握 | 既有三项修复保留；O1 追加修复 reading 答案键隔离，恢复与并发专项离线通过；真实流程已验（执行记录 14：题卡公开 payload 无答案键、revision/hints 落盘）；**整回合推理隔离已真实复验；阅读引用现已绑定至题目、定性评估和 Notebook，旧版重开/权限失效检查通过；PDF 与 EPUB 原文范围内正例已有真实调用证据（执行记录 18），浏览器回跳与完整样本验收仍未做；本批交付范围与提交核对见执行记录 19** |
+| B3 反馈、掌握与复习 | 补齐实际缺失的语义评估边界、辅助条件、覆核、事件幂等和日程一致性 | 正确/错误/部分正确/等价表达/不知道均经审核；并发与重复提交、覆核重算、时区测试通过 | O1 修复并发初始化、辅助条件投影并验证重复覆核；R1 覆核自动补偿已实施；R4 将旧记录辅助条件收紧为显式"未知"。执行记录 14 报告的等价表达接受、错误判分与部分正确行为保留；**执行记录 16 从原事件发现负梯度反馈解释错误，语义质量重新打开；执行记录 17 新增解释审核门禁并通过已知反例真实回归，仍不能称两单元全部反馈审核通过**；覆核/时区真实调用场景未重演 |
 | B4 费用与数据保护 | 补齐预算检查、失败恢复、导出删除、备份恢复和升级兼容中的实际缺口 | 已支出加在途预留约束新任务；重试有界；未知费用可见；恢复能找回作答与引用 | O2 修复无关图片降级重调与通用摘要未知价格；O3 提供选定存储恢复。R2 已实现可配置的持久预算门禁（请求/Token/费用上限+在途预留+保守结算，默认关闭，覆盖 factory 与 agentic 入口，见执行记录 13）；R3 记录底层 HTTP 尝试数。未覆盖入口（fetch_models 等）、费用估算依赖静态价格表、全部导出删除/升级兼容仍未完成 |
 | B5 综合验收与个人试用 | 扩展样本，执行完整浏览器/接口流程、语义审核和真实延迟复测 | 技术、语义和个人试用分别给证据；未到至少 7 天复测日期保留待验证 | 未开始 |
 
@@ -133,7 +133,7 @@ B0/B1 发现可小范围修复的启动问题可在当前批处理并记录，�
 
 ## 8. 交接与执行记录
 
-当前交付：既有本机安装、PDF/EPUB 导入定位和三项 B2 修复保留；O0–O3 离线实施与缺口见执行记录 6–10；R1 事务快照/自动补偿见执行记录 12；R2 预算门禁、R3 底层计量、R4 旧辅助条件未知语义及 R1 整合补完见执行记录 13。代码、离线契约、真实调用、语义审核与个人试用分别记账；真实模型闭环和延迟试用未通过验收。第 9 节持续维护实施状态；以下早期记录中的“未提交”“仍运行旧代码”等描述是当时快照，接手时重新核对。
+当前交付以第 5 节及执行记录 18–19 为准：本地安装、有限真实 PDF/EPUB 调用、解释审核与阅读来源可信链已有证据；原 EPUB 分类比较目标仍未通过。浏览器完整流程、扩大语义样本、用户独立试用与延迟复测仍未完成。以下执行记录保留各阶段当时的状态；历史“未提交”“旧代码运行”“等待额度”等字样不能替代接手时的 Git 与运行状态核对。
 
 ### 执行记录 2026-10-24（B0 会话）
 
@@ -336,6 +336,62 @@ B0/B1 发现可小范围修复的启动问题可在当前批处理并记录，�
 - **交付**：应用户指令，本文（执行记录 14 + 第 5/10 节状态）作为唯一改动提交并推送至 fork `codex/learning-offline`（不推上游/main、不用 force）。本轮只改文档，未改功能代码，未重跑功能测试；真实调用消耗以本记录与 usage ledger 为准。第 10 节续接指令已重写为新会话接手口径。
 
 
+### 执行记录 15 2026-10-26（修复执行记录 14 的两个发现：thinking 答案隔离与掌握路径材料挂载）
+
+- **决策与范围**：新会话核对基线 `4511545c`（干净、与 fork tracking ref 一致）后，用户在"先修两个缺口 / 直接进教学优化"中拍板先修缺口。本轮属 B2 口径内小批修复：thinking 流作答前答案隔离、掌握路径挂载单元正文；不动调度公式、评分标准、题目质量与提示词（教学优化批次保留）。未调用真实模型。
+- **缺口 1 根因**：mastery tutor 走 chat agentic 循环，组题轮的模型推理经 `agent_loop._call_llm` 逐 chunk 实时写入 `thinking` 事件（客户端可见且随 turn 持久化），执行记录 14 的 events.jsonl 中 10 处命中（9 处 thinking 含 `expected_answer: A` 类推理 + 1 处 tool_result 校验文案，后者不含答案值）。tool_call 展示参数此前已被敏感参数剥离覆盖（`tool_dispatch._sensitive_arg_names`），thinking 是剩下未隔离的通道。
+- **缺口 1 修复（按轮持有）**：`agents/loop/pipeline.py` 新增聚合钩子 `_capability_thinking_hold_tools`（沿 `owned_tools`/`rebinding_tools` 既有模式，默认空集，chat 行为不变）；`capabilities/mastery/loop.py` 声明 `thinking_hold_tools = ("mastery_quiz",)`；`agent_loop._call_llm` 在 hold 集非空时按轮缓冲全部 thinking 发射点（4 处：inline think、provider reasoning 兜底、Responses reasoning items、delta reasoning），轮末定型 tool_calls 后判定——轮内调用了 hold 名单工具则整轮丢弃，否则按原 metadata 补发；传输异常轮随失败丢弃不补发。组题轮的推理在模型写出答案键之后才可能被补发/丢弃，不改变 provider 侧推理回放（`thinking_blocks` 走 LLM 消息通道，与事件流无关）。代价：mastery 回合的推理轨迹改为轮末到达（原本逐 chunk 实时）。
+- **缺口 2 根因**：会话 turn executor 的 SourceInventory 只在 chat 能力路径构建；非 chat 能力（mastery_path 等）的 else 分支只拼 notebook/history/book，`reading_references` 被静默丢弃。mastery 只依赖建向导绑定的 topic 材料（`_topic_material_manifest`），真实验收传入的 reading_references 未产生任何上下文 → tutor 自述读不到材料、目标从通识生成、`source_grounded` 恒 false。
+- **缺口 2 修复**：`_turn_runtime_shared.py` 新增 `_reading_reference_manifest`（复用 `resolve_reading_sources` 的用户隔离与 fail-closed 语义：文本只来自当前用户 ReadingStore、已删材料/未知 revision 不产生行、不因材料失败打断 turn）与 `_merge_mastery_source_mounts`（新轮引用遮蔽 topic 材料同 sid，沿 chat 路径"本回合材料优先"先例）；executor 的 mastery 分支在 topic manifest 后解析本回合 reading_references 并合并进 `mastery_topic_source_index` + `source_manifest`，tutor 的 `read_source` 无需改动即可读取单元全文（index 键 `rd-<material>-r<rev>-<locator>` 与 chat 一致）。
+- **边界与保留**：`source_grounded` 的置位链路未改——仍只在 `mastery_prepare_lesson` 的 lesson evidence 验证通过时置真；本修复让真实材料可被 tutor 与备课证据读取，`source_grounded` 能否在真实流程翻转属真实调用验证，不在此勾选。thinking 持有为 mastery 能力声明，其他能力（如 immersive_reading 的题目生成走独立 pipeline）不在本批范围。选项自曝等题目质量项留教学优化批次。
+- **防线测试**：`tests/agents/chat/test_agent_loop.py` 新增 3 项（hold 轮推理不外泄且后续轮正常补发；无 hold 时推理照常实时流——防过度抑制回归；mastery 声明 `mastery_quiz` 且普通 chat 为空集）；`tests/services/session/test_mastery_reading_reference_mount.py` 新增 4 项（真实 ReadingStore 解析进 manifest/index、未知材料 fail-closed、合并先例、空解析不覆盖 topic 状态）。
+- **验证**：定向回归全部通过——`test_agent_loop.py` 117 passed；mastery 能力/教学交付/-reviewed-revision + reading 引用 + source inventory + mastery group runtime 191 passed；`tests/services/session` + `tests/api/test_reading_quiz_answers.py` 487 passed / 1 skipped。改动文件 uvx ruff check/format 全部干净。真实前端是否在作答前渲染 thinking、修复后 mastery 真实回合的推理轨迹表现与 `source_grounded` 翻转：按 9.5 待额度恢复后真实复验。
+- **交付**：本轮未提交未推送（按当前会话授权，等用户指令）；改动共 7 个文件（5 源码 + 2 测试）+ 本文。第 10 节续接指令已更新。
+
+### 执行记录 16 2026-10-26（MVP 现场与实测复核）
+
+- 用户确认本轮“MCP”指 MVP 项目进度和实测。现场为主目录 `main / cfb3e8d1` 与隔离目录 `codex/learning-offline / 4511545c`；执行记录 15 的 5 个源码、2 个测试及本文改动仍未提交（其中材料挂载测试为 untracked）。保留全部现有改动，不重复实施，不提交或推送。
+- 只读重查真实 `data/user/usage.sqlite3`：58 条调用，全部 completed；prompt=991,101、completion=79,597、total=1,070,698、HTTP attempts=58，与记录 14 一致。未知费用仍未知，本轮没有新增真实模型调用。
+- **语义反例，重新打开 B3**：`data/mastery-pdf-u62/events.jsonl` 第 2671 行，turn `turn_1792941924382_573bf547af`、question `d67ad66171d54ab5a02f021d37f4ddab`，正确选项判为 A，但公开 `feedback` 和 `explanation` 都写“梯度为负意味着增大 θ 会使损失上升，那么要降低损失就该增大 θ”。首句方向颠倒且与后句矛盾：一维可微函数在导数为负的点，足够小的正向增量使损失局部下降。选项与更新方向正确不能证明解释正确；本条推翻“全部题目/反馈语义审核通过”的笼统结论，原始回答、判分与历史记录不改写。
+- **根因与优化边界（RCG）**：本例判分接受了正确选项，但模型生成的解释含机制错误；既有验收未独立逐句核对解释，判分正确与解释正确被合并为通过。后续语义回归须将同题题干、选项、答案、解释、来源一起审核；本例用导数符号或简单函数 `L(θ)=(θ−3)²` 验算。原事件作为失败样本保留；本轮尚未新增运行时解释校验，不能声称产品防线已补齐，也不靠改掉历史一句话声称生成质量修复。
+- **答案隔离复核边界**：旧 PDF 日志有 9 条 thinking 事件含 expected_answer，均随后调用 mastery_quiz；旧 EPUB 日志也有 9 条，其中 1 条在 mastery_mode/mastery_build 前讨论出题和答案键字段。后者尚未证实泄露具体答案，但说明应在真实复验时覆盖组题之前的轮次，不能只查最终 quiz 轮。执行记录 15 的按轮隔离不等于整个 mastery turn 的推理均已隔离。
+- **本轮定向验证**：补跑 `tests/agents/chat/test_agent_loop.py` 与 `tests/services/session/test_mastery_reading_reference_mount.py`，**121 passed in 347.24s，0 failed**；这是离线代码回归，不替代修复后的真实调用和浏览器验证。`git diff --check` 通过。
+- **下一步**：先保留并核对错误解释及其原题，完成两项 B2 修复的小范围真实复验，再验证反馈解释改进与选项自曝问题；不重复整套百万 Token 流程。B4 未覆盖项、B5 用户独立作答与至少 7 天复测仍未关闭；2026-10-25 的代理驱动样本不代表用户本人已开始延迟学习实验。
+
+### 执行记录 17 2026-10-26（解释审核门禁与整回合推理隔离）
+
+- **范围与基线**：用户要求继续处理，沿现有 `codex/learning-offline / 4511545c` 未提交成果推进；不切换模型、不启用预算、不改调度公式或历史真实作答，未提交/push。本批只闭合新生成解释的审核门禁和已复现的推理泄露；原书持久证据链仍保留未完成。
+- **解释错误根因与修复（RCG）**：选择题正确标签可直接判分，随后原样展示注册时的 explanation；旧 bind_questions 在无来源证据时跳过，在有来源时也只明确要求题目和答案键受支持。现在有解释的题目必须经过同一有界审核入口，独立返回严格布尔 explanation_valid=true；缺字段、false、字符串 true 或调用失败均不发布题卡、不保存作答或推进掌握。来源已有审核时复用该调用；原先无来源的解释题增加一次审核，每组 1–4 题仍只调用一次，不增加单独的第二轮审核或自动改写重试。工具描述补充符号、因果方向和每句解释自检。
+- **持久防线与兼容**：PendingQuestion.content_review 私有保存当前题干/选项/答案/解释的 fingerprint 和审核回执，重开后可校验篡改；公开题卡继续走白名单投影。该回执与 source_evidence 分开，不能冒充原书依据或自动置 source_grounded。旧题缺回执仍是历史未审核状态，不编造通过、不回填、不改历史解释；直接引擎注册等既有低层入口不据此宣称全覆盖。审核本身是模型判断，有误差，必须保留语义抽检。
+- **先失败再修复**：新增无来源反例、缺失/错误类型 verdict、回执重开与篡改、空解释无调用、来源支持不能替代解释审核、组题中一题失败不发布整组等回归。修复前 4 failed / 1 passed；首次整合 6 failed / 53 passed，发现旧源审核 fixture 缺新字段、两条旧覆核 fixture 缺审核 mock，逐项补全而非放宽生产门禁（日志 data-feedback-review-offline.log）。随后相关 9 文件 126 passed（data-feedback-integration.log）。
+- **有限真实解释回归**：在独立临时 LearningStore 中取原错误题的副本（原题/选项/答案不改），使用既有 CommandCode deepseek-v4-flash 真实审核：原错误解释 supported=true / explanation_valid=false，被门禁拒绝；修正为“负导数下足够小的正向增量使损失局部下降”后，两项均 true，被接受。只证明此已知反例的有限回归有效，不能推广成普遍语义质量通过。记录在忽略的 data/feedback-review-live/。
+- **推理隔离的真实失败与修复**：首个 SDK 掌握路径小回合成功读取 PDF unit 62、建 1-KP 路径、发出经审核题卡，但早于 mastery_quiz 的推理里仍出现 expected_answer 标签讨论（700 条 thinking、3 处字段命中）。根因是工具调用名称只能说明本轮执行动作，不能限制更早轮次计划答案。改为 MasteryLoopCapability.private_thinking，AgentLoop 四类推理输入统一不向客户端发事件；普通 chat 继续流式推理，模型侧推理回放和教学正文不变。定向 3 passed / 114 deselected。第二个真实 SDK 回合读取原文并切回本批新建路径、重现已有题卡，客户端 thinking=0，仍有正常 content、tool_result、done；它是保留题卡流程，不冒充又生成了新题。
+- **来源链真实结论**：读取原文成功仅确认挂载与 read_source 生效；当前 ReadingStore 引用不进入基于 KB/PDF 的 selected_scope 备课证据链，测试路径没有建立 lesson_evidence，source_grounded 仍 false。本轮不为显示绿色直接改标志。下一小批需明确阅读单元的持久材料版本、定位与证据审核/重开/失效契约后补齐；源码入口为 lesson_evidence.selected_scope / prepare_lesson / validate_evidence 与 semantic_assessment.bind_questions，不能把正文可读当作来源闭环已验收。
+- **真实消耗与产物**：本轮本地 usage 库由 58 增至 70 条，增量 12 次调用 / 12 次 HTTP 尝试，155,790 prompt + 8,735 completion = 164,525 tokens；费用仍未知。包括两次反例对照与两个有限 SDK 回合及其内部记忆调用；没有重跑百万 Token 流程。原始失败保留在 data/mastery-fix-probe/，复验在 data/mastery-fix-probe-v2/。首个驱动在已写完结果后调用了不支持的 close 参数，留下 TypeError；第二次驱动改用真实 close() 正常结束，不把首轮驱动退出错误算作应用回合失败。
+- **最终离线与检查**：首次整合 900 passed / 21 failed（data-feedback-final-integration.log），失败为旧 fixture 缺新审核 mock；补齐后相关 26 passed（data-feedback-all-fixture-fixes.log）。随后复跑在续接时工具进程已结束，日志仅到 85%，没有最终计数，不记通过；后续整合见记录 18。改动 Python Ruff 0.16.0 check/format、git diff --check、仓库卫生检查通过；未修改前端，未执行浏览器完整流程或全站构建。测试和驱动日志均在已核对的 Git 忽略范围。
+- **下一步与边界**：先闭合阅读材料的持久来源证据链，再以 PDF/EPUB 小单元验证题目、解释和引用；选项质量、浏览器完整流程、B4 范围外项和 B5 用户独立学习/至少 7 天复测仍未关闭。本批通过项不能代替整个 MVP 验收。
+
+### 执行记录 18 2026-10-26（阅读来源持久绑定、覆盖门禁与有限真实对照）
+
+- **授权与范围**：用户再次要求继续，保留此前全部未提交改动，在同一 worktree 续接来源链。新增 learning/reading_evidence.py，复用现有 ReadingStore 引用解析、题目审核、学习事务、outbox 和 Notebook；不建整书向量库、不更换模型、不启用预算开关，不改调度公式或原始失败记录。
+- **题目与来源**：mastery_quiz / mastery_prepare_lesson 的引用由运行时覆盖注入，模型不能注入原文。服务端按当前用户权限重新读取固定 material_id/revision/locator，保存原文文本、SHA256、精确引文及审核回执；发卡前与评分前都重新核对。引用缺失、未知修订、空单元、权限撤销、内容或目标变化均停止发题/评分，不写负面学习证据。旧修订可从归档读取；不把 revision 1 静默换成当前版。成功审核的阅读范围随路径持久化，后续回合可重新挂载，新的显式选择优先；纠正旧题仍重验旧题原修订。已有 KB/PDF 选择范围不能被阅读引用绕过。
+- **备课与掌握边界**：阅读备课单独审核覆盖范围，保存完整目标/局部 focus/缺失内容和精确引文，支持经过重新授权及文本核对的缓存。只验证了具体题目或局部讲解，不能作为整个目标的定性过门证据。完整目标覆盖包才允许 mastery_assess 定性评分；模型判断仍有误差。source_grounded=true 表示存在已审核的来源包或具体题目，不等于整个路径已教完、用户已掌握或所有来源始终可访问。
+- **持久记录**：题目和定性评估的 source_evidence 经原事务 outbox 保存并投递至不可变 attempt JSON；单一被引用单元同步实际 material_id/material_revision/section_id，逻辑路径与知识点另存 mastery_path_id/knowledge_point_id。多单元不伪造单一版本字段，完整依据留在 evidence 中。重复提交/补偿不重复推进，回执/引文不进入作答前题卡；文本证据不冒充原始页面像素检查。
+- **有界调用与真实失败修复**：每次最多 6 个单元、合计 24,000 字符，过大明确拒绝，不静默截断。真实 EPUB 流程中，三次题目审核都耗尽旧 2,200 output tokens，且 reasoning_tokens=completion_tokens=2200，没有 JSON；不能把它们记作语义拒绝。来源/解释审核现用单次最多 4,096 output tokens，为推理和 JSON 留空间；评分保持原上限，不改全局模型设置。空/不可解析的审核响应有独立错误类型，同一回合后续换题不能再次触发审核调用；新回合可重试，未新增无限重试或自动模型回退。既有来源审核调用复用，组题最多 4 题仍合并一次。
+- **真实 PDF 正例**：原 material cd182bf9e84a911a / revision 1 / locator 62，在新测试路径 reading-source-pdf-1792985133 上经 SDK 读取原文→阅读备课→带原文审核的选择题→程序性正确作答→Notebook attempt。source_grounded=true，题目 source_evidence.kind=reading；attempt 的 material_id/revision/section 为原 PDF / 1 / 62；客户端 thinking=0。focus 包只证明本次所选范围，不借此放行整目标定性评估。
+- **真实 EPUB 失败保留与新正对照**：原测试路径 reading-source-epub-1792985220 的目标要求“解释好问题与索取信息的区别”。原文引言列出好问题的作用、CEO/爱因斯坦/德鲁克例子，却没有直接建立该分类对比；备课仅给部分覆盖。随后三次审核还发生上述输出耗尽，驱动在 180 秒边界取消末轮；没有题卡或学习证据，原目标仍未通过。Agent 对照单元原文后，另建 reading-positive-epub-1792985841 作为正对照，目标限定为“解释引言中好问题的作用，并用其中一个德鲁克提问说明”，不覆盖或改写旧目标。完整目标备课、开放题审核、换说法作答评分和定性评估均通过；两条 Notebook attempt 均记录原 EPUB / revision 1 / locator 5；定性作答 hints_used=1。该正例只证明所选原文范围内的有限链路，不修补原失败目标的验收结论。审核与评分使用同一模型配置，Agent 核对原文不等于用户/专家标注。
+- **消耗与产物**：本次来源阶段台账增量 21 次调用 / 21 次 HTTP 尝试，245,841 prompt + 28,684 completion = 274,525 tokens；20 条 provider completed（其中 3 条无 JSON）、1 条 failed 且用量为估算，不能当作实际结算或免费，费用仍未知。结果分别在忽略的 data/reading-source-live/ 与 data/reading-source-positive/，原失败保留；程序作答不代表用户独立学习，B5 延迟试用未开始。
+- **验证**：来源链定向 40 passed、扩展关联范围 79 passed、新增覆盖/缓存/定性/故障测试 17 passed；输出预算及同回合阻断追加范围 47 passed，均单列不相加。扩大整合为 **2121 passed / 2 failed / 2 skipped / 5 subtests passed，939.24s**。两项失败分别为结算恢复测试的 mock 未接收新增 reading_references 参数、摘要投影测试依赖隔离目录外的 agents.yaml；已分别补显式参数断言与最小配置 stub，未放宽生产门禁。覆盖两处修复、来源/解释/语义审核、读取挂载和模型历史的最终定向范围 **72 passed in 36.03s**（data-source-final-followup.log）。整合启动后追加了审核输出保护，不能把分次结果拼成一次最终代码的全量全绿；原失败日志与完成标记保留。执行脚本 data/source-final-checks.ps1、日志 data-source-final-integration.log、完成标记 data/source-final-exit.json 均已忽略。Python Ruff 0.16.0 check/format、后端架构边界、前端 contracts:check、仓库卫生与 diff 检查通过；pre-commit 未安装，未执行。未改前端，未运行全站构建或浏览器完整流程。
+- **剩余**：B3 仍需扩大新样本、人工核验全部题目/解释/来源与争议；B4 未覆盖入口、完整导出删除/迁移等边界保留；原书界面的真实引用回跳/刷新恢复和用户独立试用、至少 7 天复测仍待完成。不会把原目标失败、模型回执、程序正确作答或测试数量改记为整体质量通过。
+
+### 执行记录 19 2026-10-26（本批文档、提交与推送交付）
+
+- 用户明确要求先更新文档，再提交并 push。交付分支为 codex/learning-offline，目标为个人 fork 的同名分支；不推 main 或上游，不创建 PR，不改主目录旧服务、原书或学习记录。
+- 本批覆盖执行记录 15–18 的源码、合成测试和本文：整回合私有推理、解释审核与无 JSON 响应的回合内阻断、阅读单元版本/定位/引文持久绑定、备课覆盖门禁、Notebook 来源同步及相关隔离测试修正。第 5/8/9.6/10 节的当前状态与交接入口同步更新，历史失败保留；实际提交和远端 SHA 以 Git 核对及本次交付消息为准。
+- 验证证据沿用记录 18 的准确分层结果：扩大整合 2121 passed / 2 failed / 2 skipped，修正两处测试依赖并覆盖最后追加的审核输出防线后，最终定向 72 passed。不将分次结果相加冒充最终全量全绿。本次文档交付不重新调用模型，也不为提交重跑无关功能套件。
+- 提交前执行改动 Python 的 Ruff 0.16.0 check/format、仓库卫生、分支策略、diff 和选定文件的凭据扫描；pre-commit 主程序的离线依赖不齐，未执行完整 pre-commit，不能把单项检查写成完整检查已通过。运行产物、原书、个人回答、凭据、模型配置、测试缓存、日志和虚拟环境均不进入提交。
+- 本批交付不关闭 B3 整体语义质量、B4 未覆盖项或 B5 真人学习与至少 7 天复测；下一步仍是浏览器定位/引用回跳/刷新恢复，以及扩大原文范围内的语义对照。提交推送本身不代表整体 MVP 验收完成。
+
 ## 9. 等待额度期间：离线可靠性优化实施计划
 
 ### 9.1 目标、边界与执行顺序
@@ -411,7 +467,7 @@ B0/B1 发现可小范围修复的启动问题可在当前批处理并记录，�
 
 ### 9.6 新会话剩余开发顺序（2026-10-25）
 
-前会话已更新文档、提交并 push；随后两个会话按用户指令续接：R1（事务快照/自动补偿）与 R2/R3/R4（预算门禁、底层计量、旧辅助条件未知语义）均已实施并离线验证，见执行记录 12、13。**本节是第 9 节的续接，不新增平行任务清单；O1/O2 的有界交付边界保留。** R1–R4 的离线契约已实现并有防线测试；下一阶段不是继续扩离线范围，而是等待额度恢复后按 9.5 做真实试用验收，或按下方”剩余小批”按需推进。
+R1–R4 已实施并离线验证（记录 12–13）；额度恢复后已经完成有限真实调用、缺口修复和阅读来源链对照（记录 14–18）。本节保留 O1/O2 的有界交付与 B4 未覆盖范围；下一阶段按第 10 节推进浏览器完整流程、扩大语义样本和用户独立试用，不重复开发已实现部分，也不把有限正例当作整体验收。
 
 | 顺序 | 剩余工作与入口 | 放行证据 | 当前状态 |
 | --- | --- | --- | --- |
@@ -428,4 +484,4 @@ R1–R4 的开发与离线契约完成后，才可报告相应离线缺口关闭
 
 **交付位置（2026-10-26）**：origin 为上游 `HKUDS/DeepTutor`，个人 fork remote 为 `fork`（`git@github.com:JueJuez/DeepTutor.git`）。R1–R4（基线 `ba1715b9`）与本轮真实模型验收的文档更新（执行记录 14）已按用户指令提交并推送至 `fork/codex/learning-offline`；提交与远端 SHA 以实际 Git 核对及 tracking ref 为准。接手先用 `git status --short`、`git log -1 --oneline` 和 tracking ref 核对实际基线与未提交改动，保留现场成果。最新代码与本文在 `C:\Users\O1830\.codex\worktrees\learning-offline\DeepTutor`，本地分支 `codex/learning-offline`。原工作区仍为 `main / cfb3e8d1`，其 8001/3782 运行服务为旧代码 + 主工作区数据；不要重置主工作区或重复实施已有修复。后续提交/push 按该会话用户指令处理，不推上游或 main。真实验收的隔离运行方式、驱动脚本与事件日志（git-ignored）见执行记录 14 末段。
 
-> 请在现有隔离 worktree C:\Users\O1830\.codex\worktrees\learning-offline\DeepTutor 的 codex/learning-offline 分支续接 PDF/EPUB 个人学习助手。先读 AGENTS.md、CONTRIBUTING.md、本文执行记录 14 与第 5 节，必要时回看 12–13，用 git status --short、git log -1 --oneline 和 fork tracking ref 核对基线；R1–R4 与 9.5 真实模型验收（B0/B1 真实调用通过、B3 语义审核人工通过，见执行记录 14）均已完成，不重做。**下一批次二选一，听用户拍板**：① 先修执行记录 14 的两个发现——thinking 事件流可含 `expected_answer` 答案标记（作答前线索，B2 口径新缺口）与 `reading_references` 未把单元正文挂载给掌握路径 tutor（`source_grounded` 恒 false，路径目标非原文生成）；② 进入教学优化（题目质量如选项自曝、提示词）。修缺口属 B2 范围内修复，可小批实施并配防线测试；教学优化不调调度公式，不批量建题库。运行方式：worktree 根 `.venv/Scripts/deeptutor.exe serve --host 127.0.0.1 --port 8002`（独立数据目录，模型配置已在 `data/user/settings/model_catalog.json`，CommandCode deepseek-v4-flash）；headless 驱动见执行记录 14。预算门禁默认关闭（`data/user/settings/llm_budget.json`），启用先问用户。B5 至少 7 天延迟复测、浏览器完整流程与 B4 范围外项继续保留；MVP 未完成，不为让状态变绿放行。当前授权是续接优化；提交/push 按该会话用户指令处理，不推上游或 main。
+> 请在现有隔离 worktree C:\Users\O1830\.codex\worktrees\learning-offline\DeepTutor 的 codex/learning-offline 分支续接 PDF/EPUB 个人学习助手。先读 AGENTS.md、CONTRIBUTING.md、本文执行记录 14–19 及第 5 节，必要时回看 12–13，用 git status --short、git log -1 --oneline 和 fork tracking ref 核对基线；R1–R4、9.5 真实模型验收（B0/B1 真实调用通过；B3 语义审核结论已因执行记录 16 的反例重新打开）以及记录 17–18 的整回合推理隔离、解释审核、阅读来源持久绑定均已实现，不重做；记录 15 的按轮隔离仅为历史方案，已被整回合私有推理替代。**下一批次：完成浏览器原书定位/引用回跳/刷新恢复，并扩展原文范围内的语义对照样本**（执行记录 18）；阅读来源持久绑定、覆盖门禁、解释审核与整回合推理隔离已实施，先复用验证，不重复开发；原 EPUB 分类比较目标仍失败，不擅自标成完成，不调调度公式、不批量建题库；真实复验已确认 read_source 可读、整回合 thinking=0，原文范围内的新正例有已审核来源包与 source_grounded=true；该标志不证明完整目标掌握，必须读取 coverage、具体引文与失败样本。运行方式：worktree 根 `.venv/Scripts/deeptutor.exe serve --host 127.0.0.1 --port 8002`（独立数据目录，模型配置已在 `data/user/settings/model_catalog.json`，CommandCode deepseek-v4-flash）；headless 驱动见执行记录 14。预算门禁默认关闭（`data/user/settings/llm_budget.json`），启用先问用户。B5 至少 7 天延迟复测、浏览器完整流程与 B4 范围外项继续保留；MVP 未完成，不为让状态变绿放行。本批按用户“先更新文档，然后提交并 push”的指令交付；后续会话是否提交/push 仍以其用户授权为准，不推上游或 main。

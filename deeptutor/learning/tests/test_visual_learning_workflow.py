@@ -29,6 +29,19 @@ from deeptutor.services.session.sqlite_store import SQLiteSessionStore
 
 @pytest.fixture
 def lesson(tmp_path, monkeypatch):
+    from deeptutor.learning import semantic_assessment
+
+    real_request = semantic_assessment._request
+
+    async def review(config, instruction, payload, **kwargs):
+        if instruction.startswith("Review each exact question"):
+            assert payload["question"]["explanation"]
+            return {"supported": True, "explanation_valid": True, "citations": []}
+        # These workflows also exercise the native semantic judge using their
+        # own provider mocks. Only the new registration review is stubbed.
+        return await real_request(config, instruction, payload, **kwargs)
+
+    monkeypatch.setattr(semantic_assessment, "_request", review)
     kb = tmp_path / "kb"
     (kb / "raw").mkdir(parents=True)
     source = kb / "raw" / "anatomy.pdf"

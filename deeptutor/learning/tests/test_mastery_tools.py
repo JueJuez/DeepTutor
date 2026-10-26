@@ -1535,13 +1535,20 @@ async def test_leave_makes_the_conversation_own_its_scratch_path(path_id, sessio
 
 
 @pytest.mark.asyncio
-async def test_quiz_explanation_reaches_the_question_bank(path_id, session_store):
+async def test_quiz_explanation_reaches_the_question_bank(path_id, session_store, monkeypatch):
     """A mastery mistake must be reviewable, not just scored.
 
     The sync used to hard-code ``explanation`` and ``difficulty`` to empty, so
     every question the mastery path contributed to the bank showed a bare
     right/wrong with nothing saying why.
     """
+    from deeptutor.learning import semantic_assessment
+
+    async def review(_config, _instruction, payload, **_kwargs):
+        assert payload["question"]["explanation"]
+        return {"supported": True, "explanation_valid": True, "citations": []}
+
+    monkeypatch.setattr(semantic_assessment, "_request", review)
     await _build_basic(path_id)
     session = await session_store.create_session(title="Mastery Session")
     status = json.loads((await MasteryStatusTool().execute(_mastery_path_id=path_id)).content)

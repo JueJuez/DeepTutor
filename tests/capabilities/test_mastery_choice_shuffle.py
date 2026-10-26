@@ -109,6 +109,13 @@ async def test_registration_shuffles_the_card_the_learner_sees(tmp_path, monkeyp
     )
     LearningStore().save(_built_path())
 
+    async def review(config, instruction, payload, **kwargs):
+        contract = payload["question"]
+        assert contract["options"][contract["expected_answer"]] == "correct body"
+        return {"supported": True, "explanation_valid": True, "citations": []}
+
+    monkeypatch.setattr("deeptutor.learning.semantic_assessment._request", review)
+
     result = await MasteryQuizTool().execute(
         _mastery_path_id="path-1",
         knowledge_point_id="path-1-kp1",

@@ -225,6 +225,9 @@ class MasteryLoopCapability:
 
     name = "mastery"
     owned_tools = (*MASTERY_TOOL_NAMES, "read_source")
+    # Preparation rounds can plan future answer keys before mastery_quiz.
+    # Suppress private reasoning for the whole turn, including those rounds.
+    private_thinking = True
     # Declared to the dispatcher so a call that repoints the turn runs first
     # and the rest of the round lands on the new target. Every call in a round
     # is bound before any of them runs, so without this a ``mastery_switch`` +
@@ -322,6 +325,16 @@ class MasteryLoopCapability:
         if tool_name in MASTERY_TOOL_NAMES:
             updated = dict(kwargs)
             if tool_name == "mastery_quiz":
+                updated["_assessment_output_unavailable"] = bool(
+                    state.get("assessment_output_unavailable")
+                )
+                updated["_mark_assessment_output_unavailable"] = lambda: state.__setitem__(
+                    "assessment_output_unavailable", True
+                )
+                # Always server-owned; never accept model-provided source text.
+                updated["_mastery_reading_references"] = (
+                    context.metadata.get("reading_references") or []
+                )
                 state["quiz_requested"] = True
                 state["quiz_awaiting_grade"] = True
                 # Only preparation after the latest failed attempt can earn a
@@ -398,6 +411,9 @@ class MasteryLoopCapability:
                 # request, not a model-supplied claim about their intention.
                 updated["_learner_message"] = context.user_message or ""
             if tool_name == "mastery_prepare_lesson":
+                updated["_mastery_reading_references"] = (
+                    context.metadata.get("reading_references") or []
+                )
                 updated["_language"] = context.language
                 from deeptutor.learning.policy import next_objective
                 from deeptutor.learning.storage import LearningStore

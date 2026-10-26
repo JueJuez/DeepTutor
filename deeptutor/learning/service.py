@@ -975,6 +975,25 @@ class LearningService:
                 turn_id=turn_id,
             )
             tx.progress.pending_question = pending
+            if any(
+                question.source_evidence.get("kind") == "reading"
+                and question.source_evidence.get("assessment_contract")
+                and question.content_review.get("explanation_valid") is True
+                for question in leaves
+            ):
+                # At least one exact question is supported by a current,
+                # revision-bound reading unit, not whole-objective coverage.
+                tx.progress.source_grounded = True
+                from deeptutor.reading.references import normalize_reading_references
+
+                tx.progress.reading_references = normalize_reading_references(
+                    [
+                        row["reading_reference"]
+                        for question in leaves
+                        if question.source_evidence.get("kind") == "reading"
+                        for row in question.source_evidence["sources"]
+                    ]
+                )
             for question in leaves:
                 tx.progress.deferred_objectives.pop(question.knowledge_point_id, None)
             tx.put_interaction(interaction)

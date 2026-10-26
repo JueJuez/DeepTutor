@@ -35,10 +35,12 @@ from .._turn_runtime_shared import (
     _format_selection_tutor_context,
     _mastery_action_context,
     _mastery_path_id,
+    _merge_mastery_source_mounts,
     _partner_group_references,
     _reading_action_context,
     _reading_material_id,
     _reading_material_revision,
+    _reading_reference_manifest,
     _reading_references,
     _reading_viewport,
     _reading_viewport_image_attachments,
@@ -801,10 +803,32 @@ class TurnExecutor:
             # attached to *this turn* (which took the chat path above) always win.
             mastery_topic_source_index: dict[str, str] = {}
             if workspace_mode == WORKSPACE_MODE_MASTERY and not source_index:
-                topic_path_id = _mastery_path_id(payload.get("mastery_path_id"))
+                from deeptutor.learning.identity import resolve_mastery_path_binding
+
+                topic_path_id = resolve_mastery_path_binding(
+                    configured_path_id=_mastery_path_id(payload.get("mastery_path_id")),
+                    book_references=book_references,
+                    session_id=session_id,
+                ).path_id
                 if topic_path_id:
                     source_manifest_text, mastery_topic_source_index = await asyncio.to_thread(
                         _topic_material_manifest, topic_path_id
+                    )
+                # A mastery turn can carry reading references — unit locators
+                # from the reader the learner is looking at right now. Non-chat
+                # turns skip the chat source inventory, so without this they
+                # were dropped and the tutor taught from memory while claiming
+                # to teach the open book. Fresh turn references shadow topic
+                # materials, matching the chat-path precedence above.
+                if reading_references:
+                    reading_manifest, reading_index = await asyncio.to_thread(
+                        _reading_reference_manifest, reading_references
+                    )
+                    source_manifest_text, mastery_topic_source_index = _merge_mastery_source_mounts(
+                        source_manifest_text,
+                        mastery_topic_source_index,
+                        reading_manifest,
+                        reading_index,
                     )
 
             # A card answer rides in on this turn's message, because posing a
