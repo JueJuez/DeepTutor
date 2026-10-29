@@ -321,6 +321,8 @@ export function ReaderPane({
   const positionSaveTimerRef = useRef<number | null>(null);
   /** Materials whose stored position has already been honoured. */
   const resumedMaterialRef = useRef("");
+  /** Material whose stored position has been read; saves wait for that read. */
+  const positionResumeReadRef = useRef<string | null>(null);
   const headingJumpNonceRef = useRef(0);
   const historyReady = historySessionId === (sessionId ?? null);
 
@@ -361,19 +363,24 @@ export function ReaderPane({
       // chapter; the media stage does the same with a timestamp.
       if (material && material.render_mode !== "epub") {
         const materialId = material.material_id;
-        const total = material.unit_count;
-        if (positionSaveTimerRef.current) {
-          clearTimeout(positionSaveTimerRef.current);
+        // Opening a document reports page 1 before the stored position has
+        // even been read; saving that would clobber the progress the resume
+        // is about to restore, so the first save waits for that read.
+        if (positionResumeReadRef.current === materialId) {
+          const total = material.unit_count;
+          if (positionSaveTimerRef.current) {
+            clearTimeout(positionSaveTimerRef.current);
+          }
+          positionSaveTimerRef.current = window.setTimeout(() => {
+            void saveReadingPosition(materialId, {
+              locator,
+              source_anchor: "",
+              percentage: total > 0 ? locator / total : 0,
+            }).catch(() => {
+              // Reading continues when a background progress write fails.
+            });
+          }, 400);
         }
-        positionSaveTimerRef.current = window.setTimeout(() => {
-          void saveReadingPosition(materialId, {
-            locator,
-            source_anchor: "",
-            percentage: total > 0 ? locator / total : 0,
-          }).catch(() => {
-            // Reading continues when a background progress write fails.
-          });
-        }, 400);
       }
       if (material && historyReady) {
         const pending = pendingNavigationRef.current;
@@ -560,11 +567,13 @@ export function ReaderPane({
     let cancelled = false;
     void getReadingPosition(materialId)
       .then((position) => {
+        positionResumeReadRef.current = materialId;
         if (cancelled || position.locator <= 1) return;
         requestJump(position.locator);
       })
       .catch(() => {
         // Never opened before, or the read failed: page 1 is a fine start.
+        positionResumeReadRef.current = materialId;
       });
     return () => {
       cancelled = true;

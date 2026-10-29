@@ -341,6 +341,11 @@ export function PdfDocumentView({
     let cancelled = false;
     let timer: number | undefined;
 
+    // A pending resize anchor was captured at the pre-jump viewport; once a
+    // jump is on its way it is obsolete, and letting its restore run after the
+    // scroll would drag the reader back to wherever the jump started.
+    resizeAnchorRef.current = null;
+
     // Scrolling and searching both wait a frame: the jump may have just widened
     // the render window, and the target page needs to exist in the DOM first.
     let scrollTries = 0;
@@ -354,6 +359,10 @@ export function PdfDocumentView({
         if (scrollTries <= 20) timer = window.setTimeout(run, 120);
         return;
       }
+      // A width change can capture an anchor between the effect running and
+      // this scroll landing (the post-load scrollbar appearing does exactly
+      // that); it must not restore the pre-jump viewport over the jump.
+      resizeAnchorRef.current = null;
       if (!quote) return;
       let attempts = 0;
       const findQuote = () => {
