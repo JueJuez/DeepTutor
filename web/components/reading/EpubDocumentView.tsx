@@ -14,6 +14,7 @@ import {
 } from "@/lib/reading-api";
 import {
   allowsEpubPageTurn,
+  bridgeEpubNonLinearTurn,
   directionForEpubLayout,
   locatorForEpubHref,
   resolveEpubPageTurnSwipe,
@@ -77,6 +78,8 @@ type EpubRendition = {
 
 type EpubSection = {
   href?: string;
+  index?: number;
+  linear?: boolean;
   load: (loader: (path: string) => Promise<unknown>) => Promise<unknown>;
   find: (query: string) => Array<{ cfi: string }>;
 };
@@ -86,7 +89,10 @@ type EpubBook = {
   ready: Promise<unknown>;
   package?: { metadata?: { direction?: string } };
   load: (path: string) => Promise<unknown>;
-  spine: { get: (target: string | number) => EpubSection | undefined };
+  spine: {
+    get: (target: string | number) => EpubSection | undefined;
+    spineItems?: EpubSection[];
+  };
   locations?: {
     percentageFromCfi?: (cfi: string) => number | null;
     generate?: (characters: number) => Promise<unknown>;
@@ -272,6 +278,19 @@ export function EpubDocumentView({
     const rendition = renditionRef.current;
     if (!rendition) return;
     const physical = directionForEpubLayout(direction, isRtlRef.current);
+    // Publisher covers ship as linear="no" spine items, for which epub.js
+    // binds no-op turn functions — the reader would be stuck on that page.
+    const bridge = bridgeEpubNonLinearTurn(
+      bookRef.current?.spine.spineItems,
+      rendition.currentLocation()?.start?.href,
+      physical,
+    );
+    if (bridge) {
+      void rendition.display(bridge).catch(() => {
+        // A failed bridge leaves the reader on the current page.
+      });
+      return;
+    }
     void (physical === "next" ? rendition.next() : rendition.prev());
   }, []);
 

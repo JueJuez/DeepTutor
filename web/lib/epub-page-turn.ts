@@ -54,6 +54,38 @@ export function hrefKey(href: string): string {
   }
 }
 
+export type EpubSpineItemLike = {
+  href?: string;
+  index?: number;
+  linear?: boolean;
+};
+
+/**
+ * epub.js binds no-op next/prev to non-linear spine items (publisher covers
+ * marked `linear="no"`), so turning away from such a section is a silent
+ * no-op. Resolve the adjacent linear section to bridge to; null means the
+ * rendition's own turn applies.
+ */
+export function bridgeEpubNonLinearTurn(
+  items: EpubSpineItemLike[] | undefined,
+  currentHref: string | undefined,
+  direction: EpubPageTurnDirection,
+): string | null {
+  if (!items?.length || !currentHref) return null;
+  const wanted = hrefKey(currentHref);
+  const index = items.findIndex(
+    (item) => hrefKey(item.href ?? "") === wanted,
+  );
+  if (index < 0 || items[index].linear !== false) return null;
+  const step = direction === "next" ? 1 : -1;
+  let target = index + step;
+  while (target >= 0 && target < items.length && items[target].linear === false) {
+    target += step;
+  }
+  if (target < 0 || target >= items.length) return null;
+  return items[target].href ?? null;
+}
+
 export function locatorForEpubHref(
   href: string,
   refs: Array<{ locator: number; source_href: string }>,
