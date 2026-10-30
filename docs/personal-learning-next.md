@@ -149,3 +149,25 @@ Omni-Edu 提供 K–12 教育模型、推理 SDK、数据构建与评测工具�
 接手时先读本文件第 1、3–4 节及原计划需求/验收和记录 23，核对 `git status --short`、HEAD、fork tracking ref 与运行代码，保护现场成果。从 C1 与 C3 的下一小批开始，不重复 O0–O3/R1–R4。只做调研整理不自动转入 E2–E4；后续功能范围按用户选择执行。
 
 实际运行方式沿用原记录：在隔离 worktree 执行 `.venv/Scripts/deeptutor.exe start --no-browser --detach`；端口与进程需重新核实。浏览器采用桌面 Chromium/Playwright，历史驱动和事件在 git-ignored `data/`。引用探针兼容 `#dt-material-` 与 `#dt-locator-`；位置路由匹配查询串 `**/position*`。预算设置在 `data/user/settings/llm_budget.json`，默认关闭；不读出或提交模型密钥。
+
+## 8. 无人值守自动化状态机（2026-10-31 新增）
+
+用户 2026-10-31 授权建立无人值守自动化流水线：每轮由定时器唤起一个全新会话（状态以本文为唯一真源），执行 ≤2 个任务或一个验收段，按第 6 节节奏测试、更新本文、提交并 push `fork/codex/learning-offline`。轮次锁为 git-ignored `data/automation.lock`。本节只维护 phase、决策清单与轮次记录；执行细节规则在自动化任务定义中。
+
+- **phase：`DEV_MVP`**
+- 状态机：`DEV_MVP` →（C1–C5、C7 完成或全部 blocked/parked）→ `ACCEPT_MVP` →（验收完成，除 parked）→ `DEV_ENHANCE`（按 E1→E2→E3 顺序，用户 2026-10-31 已授权；E4 除外）→ `ACCEPT_ENHANCE` → `DONE_AWAITING_REVIEW`。
+- 需要用户决策或必须用户本人参与的事项一律写入下方「待用户决策」并跳过，不阻塞其余工作。
+
+### 待用户决策
+
+| 事项 | 背景 | 状态 |
+|---|---|---|
+| C2 真实批量生成 | 样本扩展若构成真实批量生成，按第 6 节约定需用户确认范围与预算 | 等待用户 |
+| C6 个人试用与延迟复测 | 必须用户本人独立作答，含至少 7 天延迟复测 | 等待用户与时间条件 |
+| E4 教育模型实验 | 涉及本地硬件、显存、成本与模型选择，计划明确最后决定 | 等待用户 |
+
+（后续轮次发现的新决策项追加于此；用户裁决后移入轮次记录并更新对应任务行。）
+
+### 轮次记录
+
+- 2026-10-31：自动化建立。phase=`DEV_MVP`，从 C1（PDF 正例修复）与 C3 的 i18n/布局补验开始，按第 4 节既定批次推进。
