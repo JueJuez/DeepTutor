@@ -179,6 +179,12 @@ async def judge_answers(config, items):
         '"confidence":0.0,"feedback":"specific concise explanation in the learner answer language"}]}.',
         public_items,
         native_images=native_images,
+        # Reasoning tokens share the completion budget with the verdict JSON;
+        # a reasoning-heavy provider can spend the 2,200 default on
+        # deliberation alone and return nothing, which surfaces to a learner
+        # as "assessment unavailable" on an ordinary answer submission. The
+        # ceiling stays bounded (same rationale as the 8,192 review fix).
+        max_tokens=8192,
         sources=[
             source
             for item in items

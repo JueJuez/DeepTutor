@@ -109,7 +109,7 @@ Omni-Edu 提供 K–12 教育模型、推理 SDK、数据构建与评测工具�
 3. 历史笔记仍按目标局部、tentative/learner_report、unknown/helped/not_helped 的既有规则维护。策略改变不授予掌握，复习或目标切换仍由服务端规则决定。
 4. 用户可纠正/撤销诊断并保留证据关联；不把诊断扩成全局能力标签，不改变现有 `ErrorType` 和旧事件含义。
 
-入口：`semantic_assessment.py`、`models.py`、`teaching.py`、`policy.py`、Mastery tools/中英文提示，以及 `ObjectiveDetail.tsx` 的现有展示。验收：E1 中答对不被虚构错误，缺历史不编记忆，诊断有依据且动作相关；存储/API 有真实回归，语义样本单列。状态：候选，待范围选择。
+入口：`semantic_assessment.py`、`models.py`、`teaching.py`、`policy.py`、Mastery tools/中英文提示，以及 `ObjectiveDetail.tsx` 的现有展示。验收：E1 中答对不被虚构错误，缺历史不编记忆，诊断有依据且动作相关；存储/API 有真实回归，语义样本单列。**核验完成（2026-10-31 轮 12）——既有结构满足，未加新字段**：流程 1（诊断引用作答与原文、保留正确部分）经 S5 卡真模型双探针验证——正确作答的反馈逐点确认无虚构、部分作答的反馈精确指名全部缺失部分（`data/e2-diagnosis-probe.json`）；流程 2/3/4（动作选择、tentative/helped/not_helped 历史规则、用户纠正）由 `teaching_guidance()` 指令、`TeachingObservation` 模型与 loop 提示词既有约束覆盖（含"notes 为空不得编造反馈"的显式禁令）。**样本暴露并修复一个真实缺口**：判分调用 `judge_answers` 沿用 2,200 默认输出预算，reasoning 重的模型间歇性耗尽预算令普通作答提交报"assessment unavailable"（错误诚实抛出、不落分）——按记录 23 同族先例提升到 8,192 有界上限，定向回归 42 passed。状态：核验完成；E2 无未闭合项。
 
 ### E3 按需渐进帮助，并回到新的独立任务
 
@@ -197,6 +197,7 @@ Omni-Edu 提供 K–12 教育模型、推理 SDK、数据构建与评测工具�
 
 - 2026-10-31（轮 10，ACCEPT_MVP 验收段）：**完成（除 parked）**。第 3 节十项行为契约逐条编制验收表（上文第 9 节）：8 项 passed、1 项 passed-分歧保留（评分与覆核：dont_know 不一致 + S4 等价边界）、1 项 passed-CLI 级（数据生命周期，缺口如实保留）；浏览器链已验面与真实调用证据汇总入表。**未执行项**：作答交互卡窄屏量测（第 5 次无头探针未到达 waiting 会话，无缺陷证据，随 C6 用户实际使用确认）、C6 个人试用与 7 天复测（等待用户）。phase 推进为 `DEV_ENHANCE`，下一轮按 E1（可回放教学质量样本）开工。
 - 2026-10-31（轮 11，DEV_ENHANCE E1）：**最小交付完成**。`scripts/teaching_samples.py`（build/replay/report）+ 9 项离线测试进 Git；样本库 `data/teaching-samples/`（git-ignored）：S1–S5 全样本（dev=S1/S4/S5，holdout=S2/S3 带防误回放门禁）、机械校验 0 失败、判分与分歧（dont_know×3、equivalent×1）忠实入账。回放契约经 store 重建（含 source_evidence），逐项容错记录失败原因；**回放复现 dont_know 判类不稳定**（三样本 ungraded↔incorrect 全部再现），强化验收表分歧①。报告如实列出 7 种无样本情形。**过程事故**：backfill 曾 exec_module 审计脚本触发计划外真模型重审（15 次调用）并覆盖当日 verdicts.json（12/15→14/15，两边界分歧翻转）——已改 AST 提取常量；重审结果作为判分方差佐证保留。本轮窗口合计 92 次调用 227,145+60,359 tokens（含上述事故与契约修正前的作废回放，O2 口径费用未知）。phase 保持 `DEV_ENHANCE`。下一轮候选：E2（有依据的诊断连到下一步教学动作）核验实施。
+- 2026-10-31（轮 12，DEV_ENHANCE E2）：**核验完成，未加新字段**。四条流程映射：①诊断质量经 S5 卡真模型双探针验证（正确作答零虚构、部分作答诊断精确指名缺失部分，`data/e2-diagnosis-probe.json`）；②③④动作选择/历史笔记规则/用户纠正由 `teaching_guidance()`、`TeachingObservation` 与 loop 提示词既有约束覆盖。**实质修复**：探针暴露判分调用 2,200 输出预算被 reasoning 间歇性耗尽（学习者普通提交会遇"assessment unavailable"，错误诚实抛出不落分）——按记录 23 先例提升 `judge_answers` 至 8,192 有界上限，定向回归 42 passed。本轮 26 次调用 73,730+20,564 tokens（含两次修复前失败调用，O2 口径费用未知）。phase 保持 `DEV_ENHANCE`。下一轮候选：E3（按需渐进帮助并回到新独立任务）核验实施。
 
 ### 轮次记录
 
