@@ -1220,8 +1220,10 @@ source of truth for billing and cache hits.
 
 ### Personal PDF / EPUB learning validation and recovery
 
-The local [personal learning plan](docs/personal-learning-mvp.md) records the
-implemented offline safeguards, remaining development and live validation gaps.
+The active [MVP closure and teaching enhancement plan](docs/personal-learning-next.md)
+tracks remaining work and proposed enhancements. The original
+[requirements and stage records](docs/personal-learning-mvp.md) retain the
+acceptance baseline and historical evidence. The overall MVP is not yet accepted.
 New Mastery answer and correction transactions retain a durable Notebook
 delivery snapshot. Interrupted delivery resumes at Web startup/background
 recovery or the next Mastery status read (including CLI/SDK), without model

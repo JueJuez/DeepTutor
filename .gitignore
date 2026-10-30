@@ -11,6 +11,7 @@ data/
 # Local development documents; public guides live in docs-for-user/.
 /docs/*
 !/docs/personal-learning-mvp.md
+!/docs/personal-learning-next.md
 /design-qa.md
 /site/
 .claude
