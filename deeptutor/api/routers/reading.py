@@ -50,6 +50,7 @@ from deeptutor.reading import (
     SourceKind,
     export_material,
     render_outline,
+    unit_quality,
 )
 from deeptutor.reading.captions import caption_material_media, captions_enabled
 from deeptutor.reading.ingestion import (
@@ -241,9 +242,11 @@ class UnitText(BaseModel):
     unit: str
     text: str
     # Per-unit extraction quality: a unit with no extractable text (cover,
-    # scanned page, empty spine item) must be visible to callers before it
-    # reaches quiz or assessment flows.
+    # scanned page, empty spine item) — or so little text that it is scan
+    # residue — must be visible to callers before it reaches quiz or
+    # assessment flows.
     empty: bool = False
+    sparse: bool = False
     char_count: int = 0
 
 
@@ -1263,8 +1266,7 @@ async def get_unit(material_id: str, locator: int) -> UnitText:
             locator=locator,
             unit=manifest.unit,
             text=text,
-            empty=not text.strip(),
-            char_count=len(text.strip()),
+            **unit_quality(text),
         )
     except Exception as exc:
         raise _http_error(exc) from exc
@@ -1298,8 +1300,7 @@ async def get_revision_unit(material_id: str, revision: int, locator: int) -> Un
             locator=locator,
             unit=manifest.unit,
             text=text,
-            empty=not text.strip(),
-            char_count=len(text.strip()),
+            **unit_quality(text),
         )
     except Exception as exc:
         raise _http_error(exc) from exc

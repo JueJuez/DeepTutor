@@ -101,6 +101,45 @@ def _epub_with_empty_unit(tmp_path: Path) -> Path:
     return path
 
 
+def _epub_with_sparse_unit(tmp_path: Path) -> Path:
+    """A minimal EPUB whose second spine item is scan residue: nonempty but
+    too short to ground a question."""
+    import zipfile
+
+    path = tmp_path / "with-scan-residue.epub"
+    with zipfile.ZipFile(path, "w") as archive:
+        archive.writestr("mimetype", "application/epub+zip", zipfile.ZIP_STORED)
+        archive.writestr(
+            "META-INF/container.xml",
+            "<container xmlns='urn:oasis:names:tc:opendocument:xmlns:container'>"
+            "<rootfiles><rootfile full-path='OPS/book.opf'/></rootfiles></container>",
+        )
+        archive.writestr(
+            "OPS/book.opf",
+            "<package xmlns='http://www.idpf.org/2007/opf' "
+            "xmlns:dc='http://purl.org/dc/elements/1.1/' version='3.0'>"
+            "<metadata><dc:identifier>urn:uuid:sparse-unit</dc:identifier>"
+            "<dc:title>Sparse unit test</dc:title><dc:language>en</dc:language></metadata>"
+            "<manifest>"
+            "<item id='residue' href='residue.xhtml' media-type='application/xhtml+xml'/>"
+            "<item id='one' href='one.xhtml' media-type='application/xhtml+xml'/>"
+            "</manifest>"
+            "<spine><itemref idref='residue'/><itemref idref='one'/></spine></package>",
+        )
+        archive.writestr(
+            "OPS/residue.xhtml",
+            "<html xmlns='http://www.w3.org/1999/xhtml'><body><p>Ch. 3 — 12</p></body></html>",
+        )
+        archive.writestr(
+            "OPS/one.xhtml",
+            "<html xmlns='http://www.w3.org/1999/xhtml'><body><p>"
+            "A real passage with enough substance to ground a question about "
+            "the gradient and descent direction discussed earlier."
+            "</p></body></html>",
+        )
+    return path
+
+
 def test_action_receives_only_server_verified_visible_text(material, monkeypatch):
     captured = {}
 
@@ -510,5 +549,65 @@ def test_unit_endpoint_marks_empty_units(material, monkeypatch, tmp_path: Path):
         filled = client.get(f"/api/reading/materials/{manifest.material_id}/units/2").json()
         assert filled["empty"] is False
         assert filled["char_count"] > 0
+    finally:
+        PathService.reset_instance()
+
+
+def test_quiz_action_rejected_on_sparse_unit(monkeypatch, tmp_path: Path):
+    """Scan residue (nonempty but under the sparse bound) cannot ground a quiz
+    either — the plan bars unreliable extraction from assessment."""
+    monkeypatch.setenv("DEEPTUTOR_HOME", str(tmp_path))
+    PathService.reset_instance()
+    manifest = ReadingStore().ingest(_epub_with_sparse_unit(tmp_path))
+    try:
+
+        def run(action, context):
+            return ReadingExtensionResult(
+                type="quiz",
+                payload={
+                    "questions": [
+                        {
+                            "id": "q1",
+                            "prompt": "Which ocean?",
+                            "choices": ["Pacific", "Atlantic"],
+                            "correct_choice_index": 1,
+                        }
+                    ]
+                },
+            )
+
+        client = _client(monkeypatch, _extension(run, result_types=("quiz",), id="quiz"))
+        response = client.post(
+            f"/api/reading/materials/{manifest.material_id}/extensions/quiz/actions/open",
+            json={"locator": 1, "locale": "en"},
+        )
+        assert response.status_code == 422
+        assert "too little extractable text" in response.json()["detail"]
+        # A real passage on the next unit still quizzes normally.
+        ok = client.post(
+            f"/api/reading/materials/{manifest.material_id}/extensions/quiz/actions/open",
+            json={"locator": 2, "locale": "en"},
+        )
+        assert ok.status_code == 200, ok.text
+    finally:
+        PathService.reset_instance()
+
+
+def test_unit_endpoint_marks_sparse_units(monkeypatch, tmp_path: Path):
+    from deeptutor.api.routers import reading as reading_router_module
+
+    monkeypatch.setenv("DEEPTUTOR_HOME", str(tmp_path))
+    PathService.reset_instance()
+    try:
+        manifest = ReadingStore().ingest(_epub_with_sparse_unit(tmp_path))
+        app = FastAPI()
+        app.include_router(reading_router_module.router, prefix="/api/reading")
+        client = TestClient(app)
+        sparse = client.get(f"/api/reading/materials/{manifest.material_id}/units/1").json()
+        assert sparse["empty"] is False
+        assert sparse["sparse"] is True
+        assert 0 < sparse["char_count"] < 40
+        filled = client.get(f"/api/reading/materials/{manifest.material_id}/units/2").json()
+        assert filled["sparse"] is False
     finally:
         PathService.reset_instance()

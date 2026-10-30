@@ -93,6 +93,21 @@ _ID_LENGTH = 16
 # truncation rather than silently trimming.
 MAX_READ_CHARS = 60_000
 
+# A unit above zero but below this many characters is scan residue or a divider
+# stub: surfaced as `sparse` and, like empty units, barred from quiz generation
+# because a page of residue cannot ground a question.
+SPARSE_TEXT_CHARS = 40
+
+
+def unit_quality(text: str) -> dict[str, object]:
+    """Single source of truth for per-unit extraction quality markers."""
+    stripped = text.strip()
+    return {
+        "empty": not stripped,
+        "sparse": bool(stripped) and len(stripped) < SPARSE_TEXT_CHARS,
+        "char_count": len(stripped),
+    }
+
 
 def _normalise_selector_text(value: str) -> str:
     return re.sub(r"\s+", " ", value).strip()

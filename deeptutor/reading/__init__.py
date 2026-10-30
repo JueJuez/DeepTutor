@@ -72,7 +72,7 @@ from deeptutor.reading.service import (
     unit_timestamps,
     verify_quote,
 )
-from deeptutor.reading.store import ReadingStore, content_hash
+from deeptutor.reading.store import ReadingStore, content_hash, unit_quality
 
 __all__ = [
     "ANNOTATION_COLORS",
@@ -108,6 +108,7 @@ __all__ = [
     "WorkspaceRecord",
     "WorkspaceTab",
     "content_hash",
+    "unit_quality",
     "create_epub_pairing",
     "delete_epub_pairing",
     "export_material",

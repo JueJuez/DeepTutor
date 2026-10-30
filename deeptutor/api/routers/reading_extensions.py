@@ -17,7 +17,7 @@ from deeptutor.multi_user.learning_access import (
     allowed_reading_extensions,
     assert_learning_material,
 )
-from deeptutor.reading import ReadingStore
+from deeptutor.reading import ReadingStore, unit_quality
 from deeptutor.reading.extensions import (
     ReadingContext,
     ReadingExtensionResult,
@@ -221,12 +221,22 @@ async def run_extension_action(
         position = store.position(material_id)
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    # A unit with no extractable text (scanned page, cover, empty spine item)
-    # cannot ground a quiz; running it previously surfaced as a runtime 503.
-    if extension_id == "quiz" and not unit_text.strip():
+    # A unit with no extractable text (scanned page, cover, empty spine item),
+    # or one that is scan residue, cannot ground a quiz; running it previously
+    # surfaced as a runtime 503.
+    quality = unit_quality(unit_text)
+    if extension_id == "quiz" and quality["empty"]:
         raise HTTPException(
             status_code=422,
             detail="This unit has no extractable text, so a quiz cannot be generated from it.",
+        )
+    if extension_id == "quiz" and quality["sparse"]:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                "This unit has too little extractable text (scan residue or divider "
+                "stub), so a quiz cannot be generated from it."
+            ),
         )
     selection = _verified_selection(payload.selection, unit_text)
     if "selection" in declared_action.requires and not selection:
