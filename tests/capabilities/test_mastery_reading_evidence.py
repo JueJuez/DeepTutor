@@ -390,3 +390,127 @@ async def test_failed_preparation_never_marks_grounded(service, tmp_path, monkey
     progress = service.store.load("p")
     assert not progress.source_grounded and not progress.lesson_evidence
     assert not progress.learning_evidence
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("rejection", ["forged_quote", "invalid_decision"])
+async def test_failed_refresh_falls_back_to_valid_cached_pack(
+    service, tmp_path, monkeypatch, rejection
+):
+    from deeptutor.learning import lesson_evidence
+
+    reading, reference = material(tmp_path, "pdf")
+    wire(monkeypatch, service, reading)
+    calls = []
+
+    async def request(config, instruction, payload, **kwargs):
+        calls.append(instruction)
+        if instruction.startswith("Check whether"):
+            if len(calls) == 1:
+                return {
+                    "covered": True,
+                    "missing": "",
+                    "citations": [{"index": 0, "quote": TEXT}],
+                }
+            if rejection == "forged_quote":
+                return {
+                    "covered": True,
+                    "missing": "",
+                    "citations": [{"index": 0, "quote": "NOT IN THE ORIGINAL"}],
+                }
+            return {"covered": True, "missing": "Uncovered scope"}
+        return {
+            "verdicts": [
+                {
+                    "question_id": "kp1",
+                    "result": "correct",
+                    "confidence": 0.95,
+                    "feedback": "Matches the source.",
+                }
+            ]
+        }
+
+    monkeypatch.setattr(semantic, "_request", request)
+    config = SimpleNamespace(model="test", binding="openai")
+    good = await lesson_evidence.prepare_lesson(
+        service.store, "p", "kp1", config, reading_references=[reference], focus="direction"
+    )
+    assert good["coverage"]["complete"] is True
+
+    fallback = await lesson_evidence.prepare_lesson(
+        service.store,
+        "p",
+        "kp1",
+        config,
+        reading_references=[reference],
+        focus="direction",
+        refresh=True,
+    )
+    assert fallback["id"] == good["id"]
+    assert fallback["refresh_fallback"]["reason"]
+    assert len(calls) == 2  # One refresh attempt; no automatic model retry.
+    stored = service.store.load("p").lesson_evidence["kp1"]
+    assert "refresh_fallback" not in stored
+    from deeptutor.learning import reading_evidence as reading_evidence_module
+
+    reading_evidence_module.validate_reading_packet(service.store.load("p"), "kp1", stored)
+
+
+@pytest.mark.asyncio
+async def test_failed_refresh_after_objective_change_still_raises(service, tmp_path, monkeypatch):
+    from deeptutor.learning import lesson_evidence
+
+    reading, reference = material(tmp_path, "pdf")
+    wire(monkeypatch, service, reading)
+    calls = []
+
+    async def request(config, instruction, payload, **kwargs):
+        calls.append(instruction)
+        if instruction.startswith("Check whether"):
+            if len(calls) == 1:
+                return {
+                    "covered": True,
+                    "missing": "",
+                    "citations": [{"index": 0, "quote": TEXT}],
+                }
+            return {
+                "covered": True,
+                "missing": "",
+                "citations": [{"index": 0, "quote": "NOT IN THE ORIGINAL"}],
+            }
+        return {
+            "verdicts": [
+                {
+                    "question_id": "kp1",
+                    "result": "correct",
+                    "confidence": 0.95,
+                    "feedback": "Matches the source.",
+                }
+            ]
+        }
+
+    monkeypatch.setattr(semantic, "_request", request)
+    config = SimpleNamespace(model="test", binding="openai")
+    await lesson_evidence.prepare_lesson(
+        service.store, "p", "kp1", config, reading_references=[reference], focus="direction"
+    )
+
+    def rename(tx):
+        tx.progress.modules[0].name = "Changed objective"
+        tx.touch()
+
+    service.store.mutate("p", rename)
+    # The cached packet id embeds the objective fingerprint, so the changed
+    # objective breaks cache identity itself: no fallback, the refusal stands.
+    with pytest.raises(LessonUnavailable, match="quote is absent"):
+        await lesson_evidence.prepare_lesson(
+            service.store,
+            "p",
+            "kp1",
+            config,
+            reading_references=[reference],
+            focus="direction",
+            refresh=True,
+        )
+    assert len(calls) == 2
+    assert "refresh_fallback" not in service.store.load("p").lesson_evidence["kp1"]

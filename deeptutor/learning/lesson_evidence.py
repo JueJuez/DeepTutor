@@ -1113,11 +1113,20 @@ async def prepare_lesson(
 
 def lesson_context(evidence: dict[str, Any]) -> str:
     if evidence.get("kind") == "reading":
+        fallback = ""
+        if evidence.get("refresh_fallback"):
+            fallback = (
+                "The attempted re-preparation was rejected by the citation gate, but the previously "
+                "validated packet below still matches the current revision and objective. It remains "
+                "usable evidence; do not claim a broken evidence chain and do not retry preparation "
+                "without new information.\n"
+            )
         return (
             "VERIFIED READING TEXT SOURCE PACKET. Cite material ID, content revision and unit locator. "
             "This verifies text evidence only, not original-page pixel inspection or learner mastery. "
             "Teach only the coverage shown: partial/focus packets do not establish full-objective "
             "coverage. Each quiz key and explanation still needs its own exact-contract review.\n"
+            + fallback
             + json.dumps(evidence, ensure_ascii=False)
         )
     return (
