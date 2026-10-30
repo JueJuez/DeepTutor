@@ -134,7 +134,11 @@ async def prepare_reading_lesson(
                 {"index": i, "text": row["text"]} for i, row in enumerate(packet["sources"])
             ],
         },
-        max_tokens=4096,
+        # Reasoning tokens share this budget with the JSON verdict; a
+        # reasoning-heavy provider can spend 4096 on deliberation alone and
+        # return no verdict at all. The ceiling stays bounded but leaves room
+        # for both.
+        max_tokens=8192,
     )
     covered, missing = data.get("covered"), data.get("missing")
     if (

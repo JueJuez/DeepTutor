@@ -282,9 +282,11 @@ async def bind_questions(store, progress, questions, config=None, *, reading_ref
         "'specific visible relationship supporting the key'} instead of inventing extracted text.",
         items[0] if len(items) == 1 else {"questions": items},
         sources=located,
-        # The observed 2200-token limit could be spent entirely on reasoning.
-        # Keep review bounded, with additional room for the JSON verdict.
-        max_tokens=4096,
+        # Reasoning tokens are billed against this same budget; on a
+        # reasoning-heavy provider they can consume the whole ceiling before
+        # any JSON is emitted. Keep the ceiling bounded but large enough that
+        # the verdict still fits after the model has finished deliberating.
+        max_tokens=8192,
     )
     if len(items) == 1:
         decisions = {items[0]["question"]["question_id"]: data}
