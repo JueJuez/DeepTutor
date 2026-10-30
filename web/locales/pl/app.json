@@ -5,6 +5,8 @@
   "Discard unsent draft": "Usuń niewysłany szkic",
   "Discarding…": "Usuwanie…",
   "This draft could not be discarded. Please retry or copy it before leaving.": "Nie udało się usunąć tego szkicu. Spróbuj ponownie lub skopiuj go przed opuszczeniem strony.",
+  "This citation points to an older material revision that is not available in the reader.": "To odwołanie wskazuje na starszą rewizję materiału, która nie jest dostępna w czytniku.",
+  "This citation's material could not be opened.": "Nie można otworzyć materiału tego odwołania.",
   "Review rebuild": "Przegląd przebudowy",
   "language.english": "Angielski",
   "language.chinese": "中文",

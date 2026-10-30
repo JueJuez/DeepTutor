@@ -601,7 +601,9 @@ export function ReaderPane({
             candidate.revision !== target.materialRevision
           ) {
             setError(
-              "This citation points to an older material revision that is not available in the reader.",
+              t(
+                "This citation points to an older material revision that is not available in the reader.",
+              ),
             );
             return true;
           }
@@ -611,7 +613,7 @@ export function ReaderPane({
           setError(
             caught instanceof Error
               ? caught.message
-              : "This citation's material could not be opened.",
+              : t("This citation's material could not be opened."),
           );
           return true;
         }
@@ -620,7 +622,9 @@ export function ReaderPane({
         material?.revision !== target.materialRevision
       ) {
         setError(
-          "This citation points to an older material revision that is not available in the reader.",
+          t(
+            "This citation points to an older material revision that is not available in the reader.",
+          ),
         );
         return true;
       }
@@ -635,6 +639,7 @@ export function ReaderPane({
       rememberExplicitLocation,
       requestJump,
       setError,
+      t,
     ],
   );
 

@@ -624,14 +624,18 @@ export function ReadingWorkspacePage() {
           outline={material?.outline ?? []}
           pageHeadings={pageHeadings}
           activeHeadingId={activeHeadingId}
-          onNavigateHeading={(heading) =>
+          onNavigateHeading={(heading) => {
+            // A tapped destination must reveal the reader on sheet widths.
+            if (!window.matchMedia("(min-width: 1024px)").matches) {
+              setNavigatorOpen(false);
+            }
             setHeadingJump((current) => ({
               id: heading.id,
               nonce: (current?.nonce ?? 0) + 1,
               locator: heading.locator,
               sourceHref: heading.sourceHref,
-            }))
-          }
+            }));
+          }}
           refs={material?.unit_refs ?? []}
           transcript={material?.unit === "segment" ? transcript : []}
           transcriptUnavailable={transcriptUnavailable}
@@ -641,18 +645,26 @@ export function ReadingWorkspacePage() {
           activeLocator={activeLocator}
           bookmarks={bookmarks}
           onRemoveBookmark={(bookmarkId) => void removeBookmark(bookmarkId)}
-          onOpenAnnotation={(locator, quote) =>
+          onOpenAnnotation={(locator, quote) => {
+            if (!window.matchMedia("(min-width: 1024px)").matches) {
+              setNavigatorOpen(false);
+            }
             setDocumentJump((current) => ({
               locator,
               quote,
               nonce: (current?.nonce ?? 0) + 1,
-            }))
-          }
+            }));
+          }}
           annotationCount={annotations.length}
           unitCount={material?.unit_count ?? 0}
           open={navigatorOpen}
           onClose={() => setNavigatorOpen(false)}
           onNavigate={(locator, quote) => {
+            // Same sheet rule as the heading jump: the outline covers the
+            // reader below `lg`, so the jump must close it.
+            if (!window.matchMedia("(min-width: 1024px)").matches) {
+              setNavigatorOpen(false);
+            }
             setActiveLocator(locator);
             reportViewport({ locator });
             setDocumentJump((current) => ({

@@ -5,6 +5,8 @@
   "Discard unsent draft": "Supprimer le brouillon non envoyé",
   "Discarding…": "Suppression…",
   "This draft could not be discarded. Please retry or copy it before leaving.": "Ce brouillon n’a pas pu être supprimé. Réessayez ou copiez-le avant de quitter cette page.",
+  "This citation points to an older material revision that is not available in the reader.": "Cette référence pointe vers une ancienne révision du document qui n'est pas disponible dans le lecteur.",
+  "This citation's material could not be opened.": "Impossible d'ouvrir le document de cette référence.",
   "language.english": "English",
   "language.chinese": "中文",
   "language.french": "Français",

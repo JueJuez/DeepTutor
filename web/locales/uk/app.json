@@ -5,6 +5,8 @@
   "Discard unsent draft": "Видалити ненадіслану чернетку",
   "Discarding…": "Видалення…",
   "This draft could not be discarded. Please retry or copy it before leaving.": "Не вдалося видалити цю чернетку. Спробуйте ще раз або скопіюйте її перед виходом.",
+  "This citation points to an older material revision that is not available in the reader.": "Це посилання вказує на старішу редакцію матеріалу, яка недоступна у читачі.",
+  "This citation's material could not be opened.": "Не вдалося відкрити матеріал цього посилання.",
   "language.english": "Англійська",
   "language.chinese": "Китайська",
   "language.french": "Français",

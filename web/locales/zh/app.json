@@ -5,6 +5,8 @@
   "Discard unsent draft": "丢弃未发送的草稿",
   "Discarding…": "正在丢弃…",
   "This draft could not be discarded. Please retry or copy it before leaving.": "无法丢弃此草稿。请重试，或在离开前复制内容。",
+  "This citation points to an older material revision that is not available in the reader.": "此引用指向阅读器中已不可用的旧版材料修订。",
+  "This citation's material could not be opened.": "无法打开此引用的材料。",
   "Review rebuild": "查看重建配置",
   "language.english": "English",
   "language.chinese": "中文",
