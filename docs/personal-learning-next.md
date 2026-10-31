@@ -154,11 +154,13 @@ Omni-Edu 提供 K–12 教育模型、推理 SDK、数据构建与评测工具�
 
 用户 2026-10-31 授权建立无人值守自动化流水线：每轮由定时器唤起一个全新会话（状态以本文为唯一真源），执行 ≤2 个任务或一个验收段，按第 6 节节奏测试、更新本文、提交并 push `fork/codex/learning-offline`。轮次锁为 git-ignored `data/automation.lock`。本节只维护 phase、决策清单与轮次记录；执行细节规则在自动化任务定义中。
 
-- **phase：`ACCEPT_ENHANCE`（2026-10-31 轮 13 起；E1/E2/E3 已于轮 11–13 完成）**
+- **phase：`DONE_AWAITING_REVIEW`（2026-10-31 轮 14 起；ACCEPT_ENHANCE 已于轮 14 完成）**
 - 状态机：`DEV_MVP` →（C1–C5、C7 完成或全部 blocked/parked）→ `ACCEPT_MVP` →（验收完成，除 parked）→ `DEV_ENHANCE`（按 E1→E2→E3 顺序，用户 2026-10-31 已授权；E4 除外）→ `ACCEPT_ENHANCE` → `DONE_AWAITING_REVIEW`。
 - 需要用户决策或必须用户本人参与的事项一律写入下方「待用户决策」并跳过，不阻塞其余工作。
 
-### 待用户决策
+### 待用户决策（整体复核入口 · 醒来先看这里）
+
+自动化已完成 DEV_MVP → ACCEPT_MVP → DEV_ENHANCE → ACCEPT_ENHANCE 全部可用工作，phase=`DONE_AWAITING_REVIEW`。以下四项需要你拍板或本人参与；验收表见第 9、10 节。
 
 | 事项 | 背景 | 状态 |
 |---|---|---|
@@ -192,6 +194,19 @@ Omni-Edu 提供 K–12 教育模型、推理 SDK、数据构建与评测工具�
 真实调用（记录 14–23 先例的小范围）：S1–S5 五张卡出卡、越界目标拒绝降级、五类作答判分、定性过门正负档、伴侣问答与引用回跳——累计调用与 tokens 见各轮记录（O2 口径费用未知）。**未执行**：C6 个人试用与至少 7 天延迟复测（等待用户与时间）。
 
 **ACCEPT_MVP 结论（除 parked 项）**：验收段完成。parked 项清单见第 8 节「待用户决策」。下一 phase：`DEV_ENHANCE`（E1 起）。
+
+
+## 10. 教学增强验收表（ACCEPT_ENHANCE，2026-10-31 编制）
+
+按第 3 条口径验收 E1–E3 交付。**结论：三项交付全部通过验收（边界如实保留）；后续轮次发现的新决策项已入第 8 节清单。**
+
+| 交付 | 判定 | 验收证据（轮 14 新鲜取证，非沿用开发轮结果） |
+|---|---|---|
+| E1 可回放样本库 | passed | `report` 重跑：5 样本机械校验 0 失败、语义分歧 1 项如实携带、7 种情形无样本如实列出；provenance 5/5 可回源（path→store→pending question 与样本契约一致）；离线测试 9 项在 HEAD 通过；回放记录纳秒时间戳无覆盖（覆盖 bug 由测试抓出并修复，轮 11） |
+| E2 诊断质量 | passed | 双探针重跑：correct 作答反馈逐点确认、零虚构；partial 作答反馈指名全部缺失部分（精简上下文/三类压缩表示/与反应式记忆区别/全部实证数据）；判分预算修复（8,192）后无 OutputUnavailable 复现。边界：dont_know 判类不稳定（回放复现）保留为语义分歧，待复核 |
+| E3 帮助后备 | passed | 全新路径完整周期：提示零泄底（789 字符回复不含答案关键标记）→ 同会话作答 → `hints_used=1`、掌握分 0.0（后备生效，不再授予独立掌握）；对照路径维持模型声明行为。离线回归 620 passed/1 skipped（覆盖 sample bank、reading evidence、semantic assessment、guided mastery、assist tri-state、scheduler、session store） |
+
+**本轮验收消耗**：17 次调用 247,656 + 15,934 tokens 全 `completed`（O2 口径费用未知）。**随验收转入整体复核的边界**：语义分歧两处（dont_know 判类、S4 等价边界）留人工复核；7 种教学情形无样本；跨会话提示与结构化帮助事件为 E3 残留边界；E4 模型实验维持 parked。
 
 ### 轮次记录（续）
 
