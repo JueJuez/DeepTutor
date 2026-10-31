@@ -1609,6 +1609,27 @@ class SQLiteSessionStore:
     async def get_turn(self, turn_id: str) -> dict[str, Any] | None:
         return await self._run(self._get_turn_sync, turn_id)
 
+    async def has_turns_since(
+        self, session_id: str, since: float, *, exclude_turn_id: str = ""
+    ) -> bool:
+        """True when the session produced any turn after ``since``.
+
+        Conservative assistance backstop for pending questions: a further
+        exchange in the same session after a question was posed (a hint, an
+        explanation, an answer reveal) means the eventual answer may have
+        been guided. Callers treat uncertainty as assisted; this query is
+        the deterministic half of that rule."""
+
+        def _query(session_id: str, since: float, exclude_turn_id: str) -> bool:
+            with self._connect() as conn:
+                row = conn.execute(
+                    "SELECT 1 FROM turns WHERE session_id=? AND created_at>? AND id!=? LIMIT 1",
+                    (session_id, since, exclude_turn_id),
+                ).fetchone()
+                return row is not None
+
+        return await self._run(_query, session_id, since, exclude_turn_id)
+
     def _get_active_turn_sync(self, session_id: str) -> dict[str, Any] | None:
         with self._connect() as conn:
             row = conn.execute(

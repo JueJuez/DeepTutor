@@ -514,3 +514,52 @@ async def test_failed_refresh_after_objective_change_still_raises(service, tmp_p
         )
     assert len(calls) == 2
     assert "refresh_fallback" not in service.store.load("p").lesson_evidence["kp1"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("with_intermediate_exchange", [True, False])
+async def test_session_exchange_after_question_marks_assisted(
+    service, tmp_path, monkeypatch, with_intermediate_exchange
+):
+    """E3 backstop: once the same session carries any further exchange after a
+    question was posed (a hint, an explanation), the answer to that question
+    is guided — hints_used>=1 and not independent, even when the grading model
+    fails to declare assistance. A session without an exchange stays as the
+    model declared."""
+    reading, reference = material(tmp_path, "pdf")
+    wire(monkeypatch, service, reading)
+    sessions = SQLiteSessionStore(tmp_path / "backstop.db")
+    await sessions.create_session(title="Backstop", session_id="s")
+    monkeypatch.setattr("deeptutor.services.session.get_sqlite_session_store", lambda: sessions)
+
+    result = await pose(reference)
+    assert result.success, result.content
+    learning = LearningStore(service.store._root)
+    saved = learning.load("p")
+    created_at = saved.pending_question.created_at
+    if with_intermediate_exchange:
+        await sessions.create_turn("s", "chat")  # the hint turn
+    await reopened_grade(learning, tmp_path)
+    progress = learning.load("p")
+    evidence = list(progress.learning_evidence)[-1]
+    attempts = service.store.load("p").quiz_attempts
+    if with_intermediate_exchange:
+        assert (evidence.hints_used or 0) >= 1
+        assert attempts[-1].independent is False
+    else:
+        assert not evidence.hints_used
+        assert attempts[-1].independent is True
+
+
+async def reopened_grade(learning, tmp_path):
+    from deeptutor.learning.service import LearningService
+
+    reopened = LearningService(learning)
+    saved = learning.load("p")
+    await reopened.grade_interaction_semantic(
+        "p",
+        answer="opposite",
+        question_id=saved.pending_question.question_id,
+        session_id="s",
+        turn_id="t-answer",
+    )

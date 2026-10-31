@@ -1180,6 +1180,7 @@ class LearningService:
         session_id: str = "",
         turn_id: str = "",
         _assessment: dict | None = None,
+        _assistance_backstop: bool = False,
     ) -> tuple[LearningProgress, MasteryInteraction, bool]:
         """Grade and resolve an interaction in one idempotent transaction.
 
@@ -1257,6 +1258,7 @@ class LearningService:
                 scheduler=scheduler,
                 session_id=session_id,
                 turn_id=turn_id,
+                _assistance_backstop=_assistance_backstop,
                 verdict=(_assessment or {})
                 .get("verdicts", {})
                 .get(interaction.question.question_id),
@@ -1598,6 +1600,7 @@ class LearningService:
         scheduler: SpacedRepetitionScheduler | None = None,
         session_id: str = "",
         turn_id: str = "",
+        _assistance_backstop: bool = False,
         verdict: dict | None = None,
     ) -> tuple[str, bool | None, str, str]:
         """Shared leaf grader: never creates a parent attempt or commits separately."""
@@ -1693,7 +1696,7 @@ class LearningService:
                 session_id=session_id,
                 turn_id=turn_id,
                 visual_context=pending.visual_context,
-                assistance_used=pending.assistance_used,
+                assistance_used=pending.assistance_used or _assistance_backstop,
                 verdict=verdict,
             )
         )
@@ -3280,6 +3283,24 @@ class LearningService:
                 verdicts.update({key: value.receipt() for key, value in decisions.items()})
         except (semantic.AssessmentUnavailable, LessonUnavailable) as exc:
             raise MasteryInteractionError(str(exc)) from exc
+        # E3 assistance backstop: any exchange in the answer session after the
+        # question was posed (a hint, an explanation, an answer reveal) means
+        # the model-declared hints_used may under-report. Over-marking
+        # assisted is always safer than granting independence on a guided
+        # answer; a missing session row leaves the legacy behaviour intact.
+        backstop = False
+        answer_session = str(kwargs.get("session_id") or "")
+        if answer_session and pending.created_at:
+            try:
+                from deeptutor.services.session import get_sqlite_session_store
+
+                backstop = await get_sqlite_session_store().has_turns_since(
+                    answer_session,
+                    pending.created_at,
+                    exclude_turn_id=str(kwargs.get("turn_id") or ""),
+                )
+            except Exception:
+                backstop = False
         return self.grade_interaction(
             book_id,
             _assessment={
@@ -3288,6 +3309,7 @@ class LearningService:
                 "verdicts": verdicts,
                 "sources": source_updates,
             },
+            _assistance_backstop=backstop,
             **kwargs,
         )
 
