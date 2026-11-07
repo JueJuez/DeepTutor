@@ -115,6 +115,24 @@ def _question_independent(question: PendingQuestion) -> bool:
     return not (question.assistance_used or question.visual_context.get("hints_used"))
 
 
+def _record_question_stem(progress: LearningProgress, question: PendingQuestion) -> None:
+    """Persist the normalized stem for the objective's duplicate registry.
+
+    Called once per registered question; the rolling history is capped so the
+    aggregate cannot grow without bound.
+    """
+    from deeptutor.learning.pending import STEM_HISTORY_LIMIT, quiz_stem_key
+
+    key = quiz_stem_key(question.prompt)
+    if not key:
+        return
+    history = progress.question_stem_keys.setdefault(question.knowledge_point_id, [])
+    if key in history:
+        return
+    history.append(key)
+    del history[:-STEM_HISTORY_LIMIT]
+
+
 def _objective_fingerprint(kp: KnowledgePoint) -> tuple[str, str]:
     return (str(kp.name or "").strip().casefold(), kp.type.value)
 
@@ -232,7 +250,9 @@ def _update_quiz_evidence_for_attempts(
             continue
         attempt = unmatched.pop(match_index)
         event.result = attempt.result or ("correct" if attempt.is_correct else "incorrect")
-        event.quality = {"correct": 1.0, "partial": 0.5, "incorrect": 0.0}[event.result]
+        # Defensive .get: attempt results are graded classes today; an
+        # unexpected value must degrade to no credit, never crash.
+        event.quality = {"correct": 1.0, "partial": 0.5, "incorrect": 0.0}.get(event.result, 0.0)
         if event.hints_used and attempt.is_correct:
             event.quality = min(event.quality, 0.6)
 
@@ -644,9 +664,11 @@ class LearningService:
                 evidence.quality = min(evidence.quality or 1.0, 0.6)
             if verdict:
                 evidence.result = verdict["result"]
-                evidence.quality = {"correct": 1.0, "partial": 0.5, "incorrect": 0.0}[
-                    verdict["result"]
-                ]
+                # Defensive .get: only final verdicts reach this line today;
+                # an unexpected result must degrade to no credit, never crash.
+                evidence.quality = {"correct": 1.0, "partial": 0.5, "incorrect": 0.0}.get(
+                    verdict["result"], 0.0
+                )
                 evidence.confidence = verdict.get("confidence")
                 evidence.learner_answer = user_answer
                 evidence.feedback = verdict.get("feedback", "")
@@ -695,6 +717,51 @@ class LearningService:
             turn_id=turn_id,
         )
         progress.learning_evidence.append(evidence)
+        return evidence
+
+    def _record_declared_unknown(
+        self,
+        progress: LearningProgress,
+        pending: PendingQuestion,
+        *,
+        scheduler: SpacedRepetitionScheduler | None = None,
+        session_id: str = "",
+        turn_id: str = "",
+    ) -> LearningEvidence | None:
+        """A declared "I don't know" is a consolidation signal, not a grade.
+
+        It records one review event (quality 0) so the objective enters the
+        existing review scheduling, but never creates a QuizAttempt, an
+        ErrorRecord or a mastery change: there is no answered content to
+        judge wrong, and honesty must not cost mastery credit.
+        """
+        kp_id = pending.knowledge_point_id
+        if not kp_id:
+            return None
+        attempt_count = sum(
+            1
+            for attempt in progress.quiz_attempts
+            if attempt.knowledge_point_id == kp_id and not attempt.voided
+        )
+        evidence = LearningEvidence(
+            question_id=pending.question_id,
+            knowledge_point_id=kp_id,
+            assessment_type="declared_unknown",
+            result="ungraded",
+            quality=0.0,
+            attempt_count=max(1, attempt_count),
+            session_id=session_id,
+            turn_id=turn_id,
+        )
+        progress.learning_evidence.append(evidence)
+        kp_type = progress.knowledge_types.get(kp_id)
+        if kp_type is not None and scheduler is not None:
+            state = progress.repetition_states.get(kp_id) or scheduler.get_initial_state(
+                kp_type, desired_retention=progress.desired_retention
+            )
+            progress.repetition_states[kp_id] = state
+            scheduler.schedule_review(state, kp_type, evidence)
+            progress.review_queue = scheduler.build_review_queue(progress)
         return evidence
 
     # ── Loop-driven tutoring helpers ─────────────────────────────────────
@@ -950,6 +1017,7 @@ class LearningService:
                     question.assistance_context = {"session_id": session_id, "turn_id": turn_id}
                     question.created_at = time.time()
                     _apply_source_assistance(tx.progress, question)
+                    _record_question_stem(tx.progress, question)
             except LessonUnavailable as exc:
                 raise MasteryInteractionError(str(exc)) from exc
             if active is not None:
@@ -1265,6 +1333,19 @@ class LearningService:
             )
             pending = interaction.question
             receipt = (_assessment or {}).get("verdicts", {}).get(pending.question_id, {})
+            if receipt.get("declared_unknown") and not receipt.get("final", True):
+                # One consolidation event per interaction: record it on the
+                # first pass, then keep carrying the marker so resubmitted
+                # "I don't know" answers re-grade but never re-schedule.
+                if not interaction.result.get("declared_unknown_recorded"):
+                    self._record_declared_unknown(
+                        tx.progress,
+                        pending,
+                        scheduler=scheduler,
+                        session_id=session_id or interaction.session_id,
+                        turn_id=turn_id or interaction.turn_id,
+                    )
+                receipt = {**receipt, "declared_unknown_recorded": True}
             if visual_result == "ungraded" and not receipt:
                 receipt = {
                     "result": "ungraded",
@@ -1515,6 +1596,19 @@ class LearningService:
                 turn_id=turn_id,
                 verdict=(verdicts or {}).get(question.question_id),
             )
+            leaf_verdict = (verdicts or {}).get(question.question_id) or {}
+            if leaf_verdict.get("declared_unknown") and not leaf_verdict.get("final", True):
+                # Same once-per-leaf contract: record on the first pass, keep
+                # the marker across resubmissions.
+                if not (stored and stored.result.get("declared_unknown_recorded")):
+                    self._record_declared_unknown(
+                        tx.progress,
+                        question,
+                        scheduler=scheduler,
+                        session_id=session_id,
+                        turn_id=turn_id,
+                    )
+                leaf_verdict = {**leaf_verdict, "declared_unknown_recorded": True}
             result = build_grade_result(
                 question_id=question.question_id,
                 is_correct=bool(correct),
@@ -1529,7 +1623,7 @@ class LearningService:
                 independent=_question_independent(question),
             )
             result["is_correct"] = correct
-            result.update((verdicts or {}).get(question.question_id, {}))
+            result.update(leaf_verdict)
             result["knowledge_point_id"] = question.knowledge_point_id
             if diagnosis:
                 result["diagnosis"] = diagnosis

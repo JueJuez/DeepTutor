@@ -188,8 +188,11 @@ class LearningEvidence(BaseModel):
     knowledge_point_id: str
     timestamp: float = Field(default_factory=time.time)
     source: str = "mastery_path"
-    assessment_type: Literal["quiz", "qualitative", "review"] = "quiz"
-    result: Literal["correct", "incorrect", "partial"] = "incorrect"
+    assessment_type: Literal["quiz", "qualitative", "review", "declared_unknown"] = "quiz"
+    # "ungraded" only appears on declared-unknown consolidation events: the
+    # learner stated they do not know, which is a review signal, never a
+    # graded attempt.
+    result: Literal["correct", "incorrect", "partial", "ungraded"] = "incorrect"
     quality: float | None = None
     # None = assist conditions were not captured (legacy evidence or paths
     # outside the assist-tracking chains). 0 means "captured: no hints were
@@ -668,6 +671,10 @@ class LearningProgress(BaseModel):
     desired_retention: float = Field(default=0.9, ge=0.7, le=0.99, allow_inf_nan=False)
     repetition_states: dict[str, RepetitionState] = Field(default_factory=dict)
     review_queue: list[ReviewTask] = Field(default_factory=list)
+    # Rolling per-objective registry of normalized question stems (most recent
+    # last, capped at pending.STEM_HISTORY_LIMIT). Mechanical duplicate guard
+    # for mastery_quiz registration; not a semantic classifier.
+    question_stem_keys: dict[str, list[str]] = Field(default_factory=dict)
     # A learner may explicitly claim prior mastery.  Policy exposes this as a
     # separate provenance (``mastery_source=learner``); assessed mastery and
     # its evidence remain untouched and can take over later.

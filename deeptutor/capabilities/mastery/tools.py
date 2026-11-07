@@ -1387,6 +1387,21 @@ class MasteryQuizTool(BaseTool):
                 question, echoed, kp = built
                 leaves.append(question)
                 echoed_options = echoed_options or echoed
+            from deeptutor.learning.pending import quiz_stem_key
+
+            seen_stems: set[str] = set()
+            for leaf_question in leaves:
+                key = quiz_stem_key(leaf_question.prompt)
+                if key and key in seen_stems:
+                    return ToolResult(
+                        content=(
+                            "Two questions in this group have the same stem. Replace it with a "
+                            "genuinely different ask — a new scenario, aspect or operation — "
+                            "instead of rewording."
+                        ),
+                        success=False,
+                    )
+                seen_stems.add(key)
             try:
                 pending = PendingQuestion(
                     question_id=uuid.uuid4().hex,
@@ -1588,6 +1603,34 @@ class MasteryQuizTool(BaseTool):
         question, echoed_options = strip_echoed_options(
             question, {option["label"]: option["body"] for option in options}
         )
+
+        from deeptutor.learning.pending import position_dependent_quiz_text
+
+        offending = position_dependent_quiz_text(question) or next(
+            (
+                hit
+                for body in (option["body"] for option in options)
+                if (hit := position_dependent_quiz_text(body))
+            ),
+            "",
+        )
+        if offending:
+            return ToolResult(
+                content=(
+                    f"Question text hardcodes an option position ({offending!r}), but option "
+                    "order is shuffled at registration so the rendered card would contradict "
+                    "it. Retry mastery_quiz with self-contained stems and options that never "
+                    "reference a label, an option number, or 'all of the above'."
+                ),
+                success=False,
+            )
+
+        # Cross-turn stem repeats stay allowed on purpose: re-posing the same
+        # question after teaching is the documented retry flow (ErrorRecord
+        # retry history, scheduler failure retry). Mechanical dedup therefore
+        # only hard-refuses within one registration batch (see the group
+        # branch below); cross-turn variety is driven by the playbook and the
+        # per-objective stem history (question_stem_keys).
 
         if q_type == "choice":
             options, expected = _shuffle_choice_options(options, expected, random.Random())
@@ -1844,7 +1887,16 @@ class MasteryGradeTool(BaseTool):
                 "mastery_quiz put that call last, since it ends the turn."
             )
         if interaction.result.get("result") == "ungraded":
-            next_move = "going with source clarification or an explanation. This was ungraded, created no negative evidence and did not change mastery. Do not turn uncertainty into a wrong answer."
+            if interaction.result.get("declared_unknown"):
+                next_move = (
+                    "going on the same objective, but change the approach: the learner declared "
+                    "they do not know this. The gap was recorded as a consolidation signal and a "
+                    "review was scheduled; no wrong answer was invented and mastery did not drop. "
+                    "Teach the missing connection or prerequisite, then pose a fresh question "
+                    "(mastery_quiz last, since it ends the turn)."
+                )
+            else:
+                next_move = "going with source clarification or an explanation. This was ungraded, created no negative evidence and did not change mastery. Do not turn uncertainty into a wrong answer."
         payload = {
             "is_correct": is_correct,
             "replayed": replayed,

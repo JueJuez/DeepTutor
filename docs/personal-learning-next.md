@@ -154,8 +154,8 @@ Omni-Edu 提供 K–12 教育模型、推理 SDK、数据构建与评测工具�
 
 用户 2026-10-31 授权建立无人值守自动化流水线：每轮由定时器唤起一个全新会话（状态以本文为唯一真源），执行 ≤2 个任务或一个验收段，按第 6 节节奏测试、更新本文、提交并 push `fork/codex/learning-offline`。轮次锁为 git-ignored `data/automation.lock`。本节只维护 phase、决策清单与轮次记录；执行细节规则在自动化任务定义中。
 
-- **phase：`DONE_AWAITING_REVIEW`（2026-10-31 轮 14 起；ACCEPT_ENHANCE 已于轮 14 完成）**
-- 状态机：`DEV_MVP` →（C1–C5、C7 完成或全部 blocked/parked）→ `ACCEPT_MVP` →（验收完成，除 parked）→ `DEV_ENHANCE`（按 E1→E2→E3 顺序，用户 2026-10-31 已授权；E4 除外）→ `ACCEPT_ENHANCE` → `DONE_AWAITING_REVIEW`。
+- **phase：`DEV_LOGI`（2026-11-07 起；2026-10-31 轮 14 曾达 `DONE_AWAITING_REVIEW`，用户当日交互授权新增第 11 节 L 系列后重新进入开发态；自动化保持 paused，本阶段由用户会话交互执行）**
+- 状态机：`DEV_MVP` →（C1–C5、C7 完成或全部 blocked/parked）→ `ACCEPT_MVP` →（验收完成，除 parked）→ `DEV_ENHANCE`（按 E1→E2→E3 顺序，用户 2026-10-31 已授权；E4 除外）→ `ACCEPT_ENHANCE` → `DONE_AWAITING_REVIEW`；2026-11-07 追加：`DONE_AWAITING_REVIEW` →（用户授权 L 系列）→ `DEV_LOGI`（L1→L5 顺序）→ `ACCEPT_LOGI` → `DONE_AWAITING_REVIEW`。
 - 需要用户决策或必须用户本人参与的事项一律写入下方「待用户决策」并跳过，不阻塞其余工作。
 
 ### 待用户决策（整体复核入口 · 醒来先看这里）
@@ -228,3 +228,37 @@ Omni-Edu 提供 K–12 教育模型、推理 SDK、数据构建与评测工具�
 - 2026-10-31（轮 7，DEV_MVP：C3 作答卡量测 + C2 第三小批）：**C3 未闭合、C2 达成**。C3：经会话标签进入 waiting 回合的第 4 次探针仍未命中（伴侣 sheet 开合状态、"Opening document…"/"Loading models" 加载时序使盲探针不可靠），按不死磕纪律停止；该项保留为未闭合（进入方法：会话列表对话框定向进入 waiting 会话后量 ask_user 卡），无任何产品缺陷证据——所有已测面均无溢出、控件在视口内。C2：**S5=PDF locator 338（17.12 主动记忆架构）首次尝试即出卡**，source_grounded、全文 1273 字符引文逐字一致；**PDF1 与 EPUB 的两单元下限均达标**。第二份方法类 PDF 需用户提供书籍路径（原计划第 7 节），已入「待用户决策」。本轮 19 次调用 301,137+31,470 tokens 全 `completed`（O2 口径费用未知）。下一轮候选：S1/S4/S5 五类作答审核（Agent 可做）+ 异常样本系统核验盘点；C3 作答卡量测待探针方法成熟后再试。
 - 2026-10-31（轮 8，DEV_MVP：C2 五类作答审核 + 异常样本盘点）：**完成，零代码改动**。五类作答审核（S1/S4/S5 三卡 15 项真实判分，`data/semantic-audit-27/`）：correct/equivalent/partial/wrong 四类 12/12 按预期；**dont_know 判类不一致**（S4→ungraded、S1/S5→incorrect，与记录 23 单次观察形成分歧），S4 等价表达被判 partial 属边界语义分歧——两项均如实保留待复核，不重跑刷绿。异常样本离线盘点：损坏 PDF/EPUB 明确拒绝、缺失引用拒绝、空单元 422、超 24K 拒绝；**乱序/缺页/截断检测仍未实现**（记录 2 结论成立，列为候选开发项）。本轮 15 次调用 42,245+9,190 tokens 全 `completed`。待用户决策新增第二份方法类 PDF（轮 7）。phase 保持 `DEV_MVP`。下一轮候选：乱序/缺页/截断的 per-unit 质量标记与拦截（最小实现）或 C3 作答卡量测重试；DEV_MVP 可收口面已尽，余项均涉等待用户或语义复核。
 - 2026-10-31（轮 9，DEV_MVP 收口 → ACCEPT_MVP）：**sparse 质量标记与出题拦截已实现并验证**。改动：`reading/store.py` 新增 `unit_quality()` 单一真源与 `SPARSE_TEXT_CHARS=40` 命名常量（非空但低于阈值=扫描残页/分隔桩）；`UnitText` 端点（当前/修订版）暴露 `sparse` 字段；quiz 门禁把 sparse 与 empty 同等 422 拒绝（独立文案）。测试：新增 sparse 单元 422 + 正文单元正常出卡 + 端点 sparse 标记三个用例；`tests/reading`+`test_reading_quiz_answers.py` 共 485 passed/1 skipped，Ruff check/format 干净。**DEV_MVP 收口判定**：C1/C4/C5.1/C5.2/C5.3/C7 已闭合，C2 除等待用户项外完成，C3 除作答卡窄屏量测（5 次探针未命中会话路由，无缺陷证据，随 ACCEPT_MVP 浏览器全链验收自然覆盖）外完成，C6 等用户——**全部完成或 parked，phase 推进为 `ACCEPT_MVP`**。下一轮起按状态机第 3 条执行验收段。
+
+## 11. 第三阶段：LogiNote 借鉴增强（L 系列，2026-11-07 授权）
+
+用户 2026-11-07 交互授权：对 [LogiNote](https://github.com/GlimmerElve/LogiNote-Chinese-version-)（MIT）做功能与设计思想对比 → 定移植清单 → 开发。本节为 L 系列唯一任务真源；执行节奏沿用第 6 节（每批 ≤2 项、测试、更新本文、commit、push fork）。**参照固定版本**：`main@d3ffa2e16b9d175405713f4be327a8e7d8bc8e02`（2026-11-05，v1.1.1 源码快照）；只读解包副本在 `C:\Users\O1830\AppData\Local\Temp\logi-extract\`，仅作设计参照，不执行其代码、不复制其代码（TS→Python 无意义，借鉴设计并注明）。
+
+### 11.1 对比结论（调研事实）
+
+两边哲学高度同构：来源忠实（引文逐字核对 ↔ referenceQuotes 定位回原文）、证据判分、辅助作答不作独立掌握（E3 后备 ↔ hintLevel 0-4 + assisted pass 不累计）、契约冻结（question fingerprint ↔ sourceKey/masteryKey/contractKey）、批量判分逐题回执、指数遗忘族复习调度。
+
+**都有且对齐（不动）**：答案隔离（服务端持钥）、引文逐字门、契约指纹、辅助不作独立、批量判分、调度同族。
+**他们有→移植 5 项**（下表 L1–L5）：dont_know 判类统一、判分语义硬化、题目设计层（8 认知操作 + design 元数据 + 操作历史，参照 `src/services/quickCheck/planning.ts`）、机械题干查重 + 位置依赖题拦截（参照 `diversity.ts`/`optionOrder.ts`）、闭合题答案钥注册复核（参照 `evaluation.ts` guardChoice 的独立求钥思想，前移到注册时）。
+**都不同→借鉴后不移植**：per-criterion 9 判据量表（我们整题 verdict + 提示词硬化近似达成，全量移植需动判分/存储/UI 三层，ROI 低）；掌握状态机替换（我们分数制+门槛已充分测试）；复习队列实时派生（我们持久化队列，纪律不重写 scheduler）。
+**超范围不移植（记候选，不开工）**：个人认知库（cognition/，计划已明确不建知识图谱）、画像证据门（profile/，MVP 无画像需求）、复述论证结构、STORM（已有 deep_research）、个性化教材生成、本地语音、H5P/S2 插件、本地嵌入（若将来要离线 RAG 可参考其 @xenova/transformers + MiniLM-L12 路线）。
+
+### 11.2 用户裁决记录（2026-11-07）
+
+1. **分歧①（dont_know 判类）**：用户要求分情形讨论后裁决。情形拆解：部分作答→partial（既有契约）；判分方证据不足→ungraded（无争议）；**唯一分歧点是明确声明"不知道所考内容"**。agent 推荐「ungraded + 巩固信号」（回执不编错误原因、不进错题、不扣掌握分，但补复习调度信号，修复"声明不知道的尝试完全不落盘、目标可能永不进跨会话复习队列"的实测缺口——`_evaluate_question` 对非 final 回执跳过 `_apply_grade`，service.py:1684）；提问答复未收到，按推荐实施，用户可在验收时否决。
+2. **闭合题答案钥交叉复核**：用户拍板「出题注册时复核」——错钥在学习者看到题目前拦截，判分时不加调用。
+
+### 11.3 L 系列任务表
+
+| ID / 批次 | 工作与交付物 | 实施入口 | 边界 | 状态 |
+|---|---|---|---|---|
+| L1 / 批 1 | 判分语义硬化：judge 提示显式三规则（声明不知道→ungraded 永不 incorrect；等价表达保留核心含义与条件→correct 不降 partial；结论对但解释不可靠→partial）；`Verdict` 加可选 `declared_unknown`（默认 None 向后兼容）；声明不知道时记 LearningEvidence（result=ungraded、quality 0.0、assessment_type=declared_unknown）+ 现有 `schedule_review` 喂巩固信号；不建 QuizAttempt、不写 ErrorRecord、不动 mastery | `semantic_assessment.py`（judge 提示 :172-179、Verdict :25-29）、`service.py`（`_evaluate_question` :1684、`_apply_grade` :647 防御） | 不改 scheduler 算法只喂输入；旧回执无新字段=现状行为；E1 dev 集真模型回放验证 S1/S5 incorrect→ungraded、S4 等价→correct | **完成（2026-11-08 批 1）**：judge 三规则 + `declared_unknown` + 巩固信号（单题与组合题两路径，`_record_declared_unknown`，"记录一次、标记随回执续载"的重试幂等）；quality 映射两处防御 `.get`；tools.py tutor 文案按 declared_unknown 分流。测试：新增 `test_declared_unknown.py` 8 项；回归 `deeptutor/learning/tests`+`test_reading_quiz_answers.py` 723 passed。E1 dev 集真模型回放 S1/S4/S5：15 调用 43,880+12,602 tokens 全 completed（O2 口径费用未知）——三卡 dont_know 全部 ungraded+declared_unknown（**分歧①按裁决收敛**），S5 equivalent→correct、S1 diffs 0、S5 diffs 0；**S4 equivalent 仍 partial**（judge 理由为替代方案实质不完整，非措辞差异，不落入"措辞差异不降 partial"规则覆盖面）——**分歧②如实保留**，属等价边界的实质语义分歧，留人工复核裁决 |
+| L2 / 批 1 | 机械防线：题干归一化查重 + 选择题位置依赖题拦截 | `tools.py`（`_normalize_quiz_contract` :227、注册路径）、`models.py`、`pending.py` | 纯机械不加模型调用；拒绝时 tutor 收明确错误可换题 | **完成（2026-11-08 批 1，含一处范围修正）**：①位置依赖题硬拒（题干+选项体保守正则：以上都对/选A/第X个选项/all of the above，经 `position_dependent_quiz_text`，`_build_question` 拦截）；②组合题批内同干硬拒（归一化 `quiz_stem_key`：NFKC+casefold+去标点空白）；③`question_stem_keys` 滚动历史（cap 20）注册时记录。**范围修正（如实记录）**：跨轮同干**不硬拒**——既有 retry 流依赖重出同题（ErrorRecord retry history、scheduler 失败重试、`test_quiz_then_grade_drives_memory_gate` 三轮同题驱动掌握门），且 LogiNote 参照实现本身也只在同批生成内硬拒、历史仅作提示侧软约束；跨轮多样性改由 playbook 与 stem 历史（L3 注入）软驱动。测试：新增 `test_quiz_guards.py` 23 项（含"跨轮同题仍放行"回归） |
+| L3 / 批 2 | 题目设计层：`mastery_quiz` 可选 `design{operation,scenario,focus,required_detail}` 参数；`PendingQuestion.design` 可选字段；服务端机械计算目标操作历史并注入推荐下一操作（不硬规划）；zh/en playbook 出题指导（迁移/反事实/新情境一等题类） | `tools.py`（`_build_question`）、`models.py`、`prompts/{zh,en}/mastery_loop.yaml` | design 为元数据不展示（零前端改动）；tutor 自主采纳推荐 | 待开工 |
+| L4 / 批 2 | 迁移情形样本：用 L3 真模型小批出 1–2 张 transfer/新情境卡（S6/S7）+ 作答 + 判分，入 E1 样本库，report 更新情形覆盖 | `scripts/teaching_samples.py`、`data/teaching-samples/`（git-ignored） | 逐小批、估 10–20 次调用上限 30；沿轮 6/7 先例；依赖 L3 | 待开工 |
+| L5 / 批 3 | 闭合题答案钥注册复核：bind 阶段对 choice/concept 题批量独立求解（题干+选项+来源→钥），与 expected_answer 冲突即拒绝注册 | `semantic_assessment.py`（`bind_questions` :217） | +1 次调用/张含选择题卡（bind 批量内摊薄）；冲突拒绝不放宽；离线测试用假 provider | 待开工 |
+| L6 / 批 3 | 验收段 ACCEPT_LOGI：离线回归（learning+reading quiz+session/storage 定向、ruff）、E1 report 重跑、分歧①②复核结论、验收表写入本节 | 全部上述 + 本文 | 按 ACCEPT_MVP 口径如实判定 | 待开工 |
+
+### 11.4 L 系列轮次记录
+
+- 2026-11-07（轮 1，DEV_LOGI 启动）：调研与计划获批（本节 + 第 8 节状态机延长）。现场核对：worktree 干净、HEAD `770e9c7a`、venv 可用、自动化 paused。LogiNote 参照 SHA 已固定（`d3ffa2e1`）。本轮目标：批 1（L1 判分语义硬化 + L2 机械防线）。
+- 2026-11-08（轮 2，DEV_LOGI 批 1：L1 + L2）：**完成并验证**。L1：judge 提示三规则、`Verdict.declared_unknown`（receipt 续载）、巩固信号 `_record_declared_unknown`（单题+组合两路径、重试幂等——重试丢标记的 bug 由 `test_resubmitted_unknown_does_not_duplicate_the_signal` 抓出后修复）、quality 映射两处防御、tutor 文案分流。L2：位置依赖硬拒、批内同干硬拒、stem 历史记录；**范围修正**：跨轮同干不硬拒（retry 流依赖 + LN 参照同批硬拒先例），如实写入任务行。验证：新增 31 项测试全过；回归 723 passed（learning+reading quiz）+ 511 passed/1 skipped（session/storage/backup）；ruff check/format 干净。真模型回放：S1/S4/S5 dev 集共 15 调用 43,880+12,602 tokens 全 completed（O2 口径费用未知）——**分歧①收敛**（三卡 dont_know 一致 ungraded+declared_unknown）、S1/S5 diffs 0；**分歧②未收敛如实保留**（S4 equivalent 判 partial 的理由是实质完整性而非措辞，留人工复核）。phase 保持 `DEV_LOGI`。下一批：L3 题目设计层 + L4 迁移样本。

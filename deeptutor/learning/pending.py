@@ -13,6 +13,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 import re
 from typing import TYPE_CHECKING, Any
+import unicodedata
 
 from deeptutor.utils.text_display import decode_escaped_unicode_for_display
 
@@ -246,6 +247,59 @@ class PublicPendingQuestion:
         return result
 
 
+# ── Mechanical question guards (deterministic; no model call) ────────────────
+# Inspired by LogiNote's quickCheck diversity/optionOrder guards
+# (main@d3ffa2e1, src/services/quickCheck/{diversity,optionOrder}.ts): a
+# normalized-stem duplicate registry and a position-dependency blocker. Both
+# are structural filters, not a semantic classifier — near-duplicates that
+# survive them remain the tutor prompt's responsibility.
+
+STEM_HISTORY_LIMIT = 20
+
+# A stem or option body that hardcodes an option position would contradict
+# the card after registration shuffles option order, so such questions are
+# refused outright. The set is deliberately conservative: false positives
+# block legitimate questions, misses only cost variety.
+_POSITION_DEPENDENT_RE = re.compile(
+    r"以上\s*(?:都|全|均|皆)?\s*不?\s*(?:对|正确|是|错|错误|真|假)"
+    r"|上述\s*(?:所有|各项|选项)"
+    r"|全选"
+    r"|第\s*[一二三四1-4]\s*个?\s*选项"
+    r"|选择\s*[A-Da-d]"
+    r"|选\s*[A-Da-d]"
+    r"|all\s+of\s+the\s+above"
+    r"|none\s+of\s+the\s+above"
+    r"|both\s+[a-d]\s+and\s+[a-d]",
+    re.IGNORECASE,
+)
+
+
+def position_dependent_quiz_text(text: str) -> str:
+    """Return the offending snippet when text hardcodes an option position.
+
+    Checks stems and option bodies alike: '以上都对'/'选A'/'第X个选项'/
+    'all of the above' stop making sense once option order is shuffled at
+    registration.
+    """
+    match = _POSITION_DEPENDENT_RE.search(str(text or ""))
+    return match.group(0) if match else ""
+
+
+def quiz_stem_key(prompt: str) -> str:
+    """Normalize a question stem for exact-duplicate detection.
+
+    NFKC + casefold + strip punctuation/whitespace, mirroring LogiNote's
+    ``quickCheckStemKey``: cosmetically reworded identical stems collide,
+    different asks stay distinguishable.
+    """
+    normalized = unicodedata.normalize("NFKC", str(prompt or ""))
+    return "".join(
+        char
+        for char in normalized.casefold()
+        if not char.isspace() and not unicodedata.category(char).startswith(("P", "Z"))
+    )
+
+
 def public_pending_question(pending: PendingQuestion) -> PublicPendingQuestion:
     """Project persisted pending state without exposing ``expected_answer``."""
     options = (
@@ -274,6 +328,7 @@ def public_pending_question(pending: PendingQuestion) -> PublicPendingQuestion:
 
 __all__ = [
     "OPTION_PREFIX_RE",
+    "STEM_HISTORY_LIMIT",
     "canonical_labels",
     "PublicPendingOption",
     "PublicPendingQuestion",
@@ -281,8 +336,10 @@ __all__ = [
     "is_readable_choice_answer",
     "option_label_intent",
     "parse_options",
+    "position_dependent_quiz_text",
     "positional_label",
     "public_pending_question",
+    "quiz_stem_key",
     "resolve_answer",
     "resolve_choice_submission",
 ]
