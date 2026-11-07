@@ -154,13 +154,13 @@ Omni-Edu 提供 K–12 教育模型、推理 SDK、数据构建与评测工具�
 
 用户 2026-10-31 授权建立无人值守自动化流水线：每轮由定时器唤起一个全新会话（状态以本文为唯一真源），执行 ≤2 个任务或一个验收段，按第 6 节节奏测试、更新本文、提交并 push `fork/codex/learning-offline`。轮次锁为 git-ignored `data/automation.lock`。本节只维护 phase、决策清单与轮次记录；执行细节规则在自动化任务定义中。
 
-- **phase：`DEV_LOGI`（2026-11-07 起；2026-10-31 轮 14 曾达 `DONE_AWAITING_REVIEW`，用户当日交互授权新增第 11 节 L 系列后重新进入开发态；自动化保持 paused，本阶段由用户会话交互执行）**
+- **phase：`DONE_AWAITING_REVIEW`（2026-11-08 轮 5 起；L 系列 DEV_LOGI→ACCEPT_LOGI 已于 2026-11-08 完成，验收表见第 11.5 节。上一轮 `DONE_AWAITING_REVIEW` 为 2026-10-31 轮 14，其间经用户交互授权插入第 11 节 L 系列；自动化全程 paused）**
 - 状态机：`DEV_MVP` →（C1–C5、C7 完成或全部 blocked/parked）→ `ACCEPT_MVP` →（验收完成，除 parked）→ `DEV_ENHANCE`（按 E1→E2→E3 顺序，用户 2026-10-31 已授权；E4 除外）→ `ACCEPT_ENHANCE` → `DONE_AWAITING_REVIEW`；2026-11-07 追加：`DONE_AWAITING_REVIEW` →（用户授权 L 系列）→ `DEV_LOGI`（L1→L5 顺序）→ `ACCEPT_LOGI` → `DONE_AWAITING_REVIEW`。
 - 需要用户决策或必须用户本人参与的事项一律写入下方「待用户决策」并跳过，不阻塞其余工作。
 
 ### 待用户决策（整体复核入口 · 醒来先看这里）
 
-自动化已完成 DEV_MVP → ACCEPT_MVP → DEV_ENHANCE → ACCEPT_ENHANCE 全部可用工作，phase=`DONE_AWAITING_REVIEW`。以下四项需要你拍板或本人参与；验收表见第 9、10 节。
+自动化已完成 DEV_MVP → ACCEPT_MVP → DEV_ENHANCE → ACCEPT_ENHANCE 全部可用工作，phase=`DONE_AWAITING_REVIEW`；2026-11-08 L 系列（LogiNote 借鉴增强）亦已完成并验收（第 11 节）。以下五项需要你拍板或本人参与；验收表见第 9、10、11.5 节。
 
 | 事项 | 背景 | 状态 |
 |---|---|---|
@@ -168,6 +168,7 @@ Omni-Edu 提供 K–12 教育模型、推理 SDK、数据构建与评测工具�
 | C6 个人试用与延迟复测 | 必须用户本人独立作答，含至少 7 天延迟复测 | 等待用户与时间条件 |
 | E4 教育模型实验 | 涉及本地硬件、显存、成本与模型选择，计划明确最后决定 | 等待用户 |
 | 第二份方法类 PDF | 综合样本要求 2 份文字型 PDF（概念类+方法类），现有书籍仅 1 份 PDF（agentic-ai-guide，概念类）+ 1 份 EPUB（方法类章节）；第二份方法类 PDF 需用户提供本地路径（原计划第 7 节第 1 条） | 等待用户 |
+| 分歧②人工复核（L 系列遗留） | S4 等价表达被判 partial：L1 提示词硬化后 judge 的拒绝理由是"替代方案实质不完整"而非措辞差异（轮 2 回放如实保留）；等价边界的实质语义分歧，需要你裁决该样本的期望类是否成立（细节见第 11.5 节分歧项 1） | 等待用户 |
 
 （后续轮次发现的新决策项追加于此；用户裁决后移入轮次记录并更新对应任务行。）
 
@@ -255,11 +256,34 @@ Omni-Edu 提供 K–12 教育模型、推理 SDK、数据构建与评测工具�
 | L2 / 批 1 | 机械防线：题干归一化查重 + 选择题位置依赖题拦截 | `tools.py`（`_normalize_quiz_contract` :227、注册路径）、`models.py`、`pending.py` | 纯机械不加模型调用；拒绝时 tutor 收明确错误可换题 | **完成（2026-11-08 批 1，含一处范围修正）**：①位置依赖题硬拒（题干+选项体保守正则：以上都对/选A/第X个选项/all of the above，经 `position_dependent_quiz_text`，`_build_question` 拦截）；②组合题批内同干硬拒（归一化 `quiz_stem_key`：NFKC+casefold+去标点空白）；③`question_stem_keys` 滚动历史（cap 20）注册时记录。**范围修正（如实记录）**：跨轮同干**不硬拒**——既有 retry 流依赖重出同题（ErrorRecord retry history、scheduler 失败重试、`test_quiz_then_grade_drives_memory_gate` 三轮同题驱动掌握门），且 LogiNote 参照实现本身也只在同批生成内硬拒、历史仅作提示侧软约束；跨轮多样性改由 playbook 与 stem 历史（L3 注入）软驱动。测试：新增 `test_quiz_guards.py` 23 项（含"跨轮同题仍放行"回归） |
 | L3 / 批 2 | 题目设计层：`mastery_quiz` 可选 `design{operation,scenario,focus,required_detail}` 参数；`PendingQuestion.design` 可选字段；服务端机械计算目标操作历史并注入推荐下一操作（不硬规划）；zh/en playbook 出题指导（迁移/反事实/新情境一等题类） | `tools.py`（`_build_question`）、`models.py`、`prompts/{zh,en}/mastery_loop.yaml` | design 为元数据不展示（零前端改动）；tutor 自主采纳推荐 | **完成（2026-11-08 批 2，commit 8dee5ab3）**：`QuestionDesign` 模型 + `PendingQuestion.design`（服务端元数据，不出公投影、不入判分契约）；8 种操作冻结枚举（contrast/counterfactual/diagnose/construct/predict/evidence_gap/design_test/revise），operation+scenario 必须成对给出（无情境的操作标签直接拒绝）；`question_operations` 滚动历史（cap 10）注册时记录；工具结果注入 `design_hint`（`next_operation_hint` 按题型偏好序+近 2 次排除，纯机械建议）；组合题 leaf schema 注入 design items（照 visual 模式）；双语 playbook「题型设计层：变换考法，而不是换个说法重问」。测试：`test_quiz_guards.py` 增 7 项（含 leaf schema、hint、拒绝路径）；learning 全套 712 passed |
 | L4 / 批 2 | 迁移情形样本：用 L3 真模型小批出 1–2 张 transfer/新情境卡（S6/S7）+ 作答 + 判分，入 E1 样本库，report 更新情形覆盖 | `scripts/teaching_samples.py`、`data/teaching-samples/`（git-ignored） | 逐小批、估 10–20 次调用上限 30；沿轮 6/7 先例；依赖 L3 | **完成（2026-11-08 批 2，S6 一张达"1–2 张"下限，S7 未出）**：真模型链路 propose→`_build_question` 解析 design→bind 引文支持审查（provenance=adapted）→注册（经 service replace 替换 S1 路径旧挂起位）→五类作答（操作员撰答，沿轮 8 先例）→真模型判分 **5/5 按预期**（correct/equivalent→correct、partial、wrong→incorrect、dont_know→ungraded+declared_unknown）；`teaching_samples.py add` 入库，report：6 样本 0 机械失败，**transfer_failure 情形已覆盖**（7 种无样本→6 种）。真模型 14 次调用 25,311+19,230 tokens 全 completed（含 2 次脚本异步 bug 损耗的 propose，如实记）。证据 `data/l4-transfer-probe/`（git-ignored）。**过程中发现并修复 E1 工具完整性缺陷（如实记，超计划范围的最小必要修复）**：S6 注册替换共享路径挂起位后，`replay` 按 `pending_question` 解析题面会让 S1/S4/S5 重放**静默拿错题**——改为按样本自身 question_id 从交互存储解析（`_resolve_question`，挂起优先、交互回退），S1 重放实证（diffs 0，按旧题判分正确）；新增 `add` 子命令（单样本追加、拒绝重复、不动既有样本）；`_attach_verdicts` 支持按 question_id 键的 verdict 文件（l4 探针）且不遮蔽同路径旧样本；build 同步改为按 result 文件记录的题号解析。测试：`test_teaching_samples.py` 9→13 项 |
-| L5 / 批 3 | 闭合题答案钥注册复核：bind 阶段对 choice/concept 题批量独立求解（题干+选项+来源→钥），与 expected_answer 冲突即拒绝注册 | `semantic_assessment.py`（`bind_questions` :217） | +1 次调用/张含选择题卡（bind 批量内摊薄）；冲突拒绝不放宽；离线测试用假 provider | 待开工 |
-| L6 / 批 3 | 验收段 ACCEPT_LOGI：离线回归（learning+reading quiz+session/storage 定向、ruff）、E1 report 重跑、分歧①②复核结论、验收表写入本节 | 全部上述 + 本文 | 按 ACCEPT_MVP 口径如实判定 | 待开工 |
+| L5 / 批 3 | 闭合题答案钥注册复核：bind 阶段对 choice/concept 题批量独立求解（题干+选项+来源→钥），与 expected_answer 冲突即拒绝注册 | `semantic_assessment.py`（`bind_questions` :217） | +1 次调用/张含选择题卡（bind 批量内摊薄）；冲突拒绝不放宽；离线测试用假 provider | **完成（2026-11-08 批 3）**：`verify_choice_keys`——独立求钥只看题干+选项体（stored key/explanation 不出），冲突或不可解即拒绝注册（LogiNote guardChoice 的独立求钥思想前移到注册时）；**视觉题跳过**（其钥锚在页面像素，脱离图像不可解）；**config=None 不跑**（离线/操作员注册保持离线），生产由 `mastery_quiz` execute 对文本选择题显式解析 `get_llm_config()`。**修复流程保留为兜底**：`test_repair_question_tool_voids_wrong_key_from_question_bank`（故意注册错钥测 repair）补 key-review 离线桩——repair 工具仍是"reviewer 自身出错"残余场景的兜底。测试：新增 `test_key_review.py` 11 项（冲突/一致/不可解/无效响应/视觉跳过/非选择跳过/批量逐题/bind 接线/离线路径/工具级拒绝与放行）。**真模型探针**：生产 quiz 路径直接跑——错钥卡（stored A）被独立求钥（derived B）**拒绝注册**、一致钥卡通过审核（挂起位被 S6 占用故注册为 no-op，审核链完整跑过）；11 次调用 13,420+9,753 tokens（complete_with_config 逐 attempt 计费口径，O2 费用未知），证据 `data/l4-transfer-probe/L5-key-review-probe.json` |
+| L6 / 批 3 | 验收段 ACCEPT_LOGI：离线回归（learning+reading quiz+session/storage 定向、ruff）、E1 report 重跑、分歧①②复核结论、验收表写入本节 | 全部上述 + 本文 | 按 ACCEPT_MVP 口径如实判定 | **完成（2026-11-08 轮 5）**：验收表见 11.5 节；phase 推进为 `DONE_AWAITING_REVIEW` |
 
 ### 11.4 L 系列轮次记录
 
 - 2026-11-07（轮 1，DEV_LOGI 启动）：调研与计划获批（本节 + 第 8 节状态机延长）。现场核对：worktree 干净、HEAD `770e9c7a`、venv 可用、自动化 paused。LogiNote 参照 SHA 已固定（`d3ffa2e1`）。本轮目标：批 1（L1 判分语义硬化 + L2 机械防线）。
 - 2026-11-08（轮 2，DEV_LOGI 批 1：L1 + L2）：**完成并验证**。L1：judge 提示三规则、`Verdict.declared_unknown`（receipt 续载）、巩固信号 `_record_declared_unknown`（单题+组合两路径、重试幂等——重试丢标记的 bug 由 `test_resubmitted_unknown_does_not_duplicate_the_signal` 抓出后修复）、quality 映射两处防御、tutor 文案分流。L2：位置依赖硬拒、批内同干硬拒、stem 历史记录；**范围修正**：跨轮同干不硬拒（retry 流依赖 + LN 参照同批硬拒先例），如实写入任务行。验证：新增 31 项测试全过；回归 723 passed（learning+reading quiz）+ 511 passed/1 skipped（session/storage/backup）；ruff check/format 干净。真模型回放：S1/S4/S5 dev 集共 15 调用 43,880+12,602 tokens 全 completed（O2 口径费用未知）——**分歧①收敛**（三卡 dont_know 一致 ungraded+declared_unknown）、S1/S5 diffs 0；**分歧②未收敛如实保留**（S4 equivalent 判 partial 的理由是实质完整性而非措辞，留人工复核）。phase 保持 `DEV_LOGI`。下一批：L3 题目设计层 + L4 迁移样本。
 - 2026-11-08（轮 3，DEV_LOGI 批 2：L3 + L4）：**完成并验证**。L3（commit 8dee5ab3）：design 元数据层 + 机械操作提示 + 双语 playbook，7 项新测试。L4：真模型出迁移卡 S6（counterfactual：policy 重置到检查点 C 后两种失败是否仍发生）→ design 注册 → bind 引文审查 → 五类作答判分 5/5 → `add` 入库 → report 覆盖 transfer_failure（7 种无样本情形 → 6 种）。**计划外必要修复（如实记）**：S6 注册暴露 E1 回放按挂起位解析题面的完整性缺陷——`_resolve_question` 按题号解析 + `add` 子命令 + verdicts 按题过滤，`test_teaching_samples.py` 9→13 项。验证：learning 全套 + reading quiz + teaching samples 共 743 passed；ruff 干净；S1 重放实证修复（diffs 0）。真模型 14 次调用 25,311+19,230 tokens 全 completed（含 2 次脚本 bug 损耗，O2 口径费用未知）。phase 保持 `DEV_LOGI`。下一批：L5 答案钥注册复核 + L6 验收段（ACCEPT_LOGI）。
+- 2026-11-08（轮 4，DEV_LOGI 批 3：L5）：**完成并验证**。`verify_choice_keys`（独立求钥，冲突拒绝注册；视觉题跳过；config=None 保持离线）+ `mastery_quiz` 生产接线（文本选择题显式解析 config）；`test_repair_question…` 补离线桩（repair 流程保留为 reviewer 出错的兜底）。测试：新增 `test_key_review.py` 11 项；全量回归 1265 passed/1 skipped（learning+reading quiz+teaching samples+session/storage/backup）；ruff 干净——期间抓出并修复该回归测试打真实网络的问题（22.9s→3.99s）。真模型探针：错钥卡被独立求钥拒绝（derived B vs stored A）、一致钥卡审核通过；11 次调用 13,420+9,753 tokens（O2 费用未知）。phase 保持 `DEV_LOGI`。
+- 2026-11-08（轮 5，ACCEPT_LOGI 验收段）：**完成，phase 推进为 `DONE_AWAITING_REVIEW`**。新鲜取证（HEAD 直测，非沿用开发轮结果）：全量回归 1265 passed/1 skipped；ruff check/format 干净；E1 report 重跑（6 样本 0 机械失败、1 项语义分歧如实携带、transfer_failure 已覆盖、其余 6 种情形无样本如实列）；S6 重放 diffs 0（5/5 判类一致，含 dont_know→ungraded+declared_unknown）。验收表见 11.5 节。**L 系列真模型消耗合计**：51 次调用 94,952+52,798 tokens，台账全记录（complete_with_config 逐 attempt 口径，O2 费用未知）。
+
+### 11.5 ACCEPT_LOGI 验收表（2026-11-08 编制）
+
+判定口径沿用第 9/10 节：passed=本轮新鲜证据；分歧=如实保留；未执行=注明原因。**结论：L1–L5 交付全部通过验收（边界如实保留）；分歧②（S4 等价边界）留人工复核；phase 推进为 `DONE_AWAITING_REVIEW`。**
+
+| 交付 | 判定 | 验收证据（轮 5 新鲜取证） |
+|---|---|---|
+| L1 判分语义（dont_know 裁决 + declared_unknown 巩固信号） | passed | 全量回归 1265 passed/1 skipped（含 `test_declared_unknown.py` 8 项）；E1 dev 集三样本回放：S1/S5 diffs 0、三卡 dont_know 一致 ungraded+declared_unknown（**分歧①按 11.2 节裁决收敛**）；S6 迁移卡判分 dont_know→ungraded 一致。巩固信号幂等性有专项测试；旧回执无新字段回归兼容有专项测试 |
+| L2 机械防线（位置依赖拦截 + 批内同干拒绝 + stem 历史） | passed | `test_quiz_guards.py` 30 项含跨轮同题放行回归（retry 流不破坏）；位置正则保守集有正反例参数化测试 |
+| L3 题目设计层 | passed | design 注册→持久化→操作历史→design_hint 机械推荐全链有测试；leaf schema 注入断言；真模型 propose 经 design 层出反事实迁移卡成功（L4） |
+| L4 迁移情形样本 | passed | S6 入库（report：6 样本 0 机械失败，transfer_failure 已覆盖）；五类判分 5/5；S6 重放 diffs 0（轮 5 重跑）。**边界**：S6 一张（"1–2 张"下限），S7 未出；操作员撰答沿轮 8 先例 |
+| L5 答案钥注册复核 | passed | `test_key_review.py` 11 项；真模型探针错钥拒绝/一致钥通过；离线纪律修复（回归测试不再打真实网络）；视觉题与 config=None 路径有专项测试。**边界**：reviewer 与出题同时出错的残余场景由 repair 工具兜底（有测试） |
+| E1 工具完整性（计划外修复） | passed | `_resolve_question` 按题号解析 + `add` 子命令 + verdicts 按题过滤；`test_teaching_samples.py` 13 项；S1/S6 双重放实证（共享路径、各自按己题判分，均 diffs 0） |
+
+**分歧与边界（如实保留，不刷绿）**：
+1. **分歧②（S4 等价表达被判 partial）仍未收敛**——L1 提示词硬化后轮 2 回放仍 partial，judge 理由为"替代方案实质不完整"而非措辞差异，不落入"措辞差异不降 partial"规则覆盖面；属等价边界的实质语义分歧，留人工复核裁决（复核人：用户）。
+2. L1 的 dont_know 裁决方案（ungraded+巩固信号）按 agent 推荐实施（11.2 节），用户在验收复核时可否决；若否决，回退路径：judge 提示删 declared_unknown 规则 + 停用巩固信号（单点开关 `verify_choice_keys` 同理可回退）。
+3. L4 迁移样本 S6 一张；6 种教学情形仍无样本（report 如实列）。
+4. L5 探针"一致钥卡"注册为 no-op（挂起位占用），其审核链证据完整但注册路径的真模型一致案由 `test_consistent_key_registers`（假 provider）覆盖。
+
+**L 系列真模型消耗（台账口径）**：批 1 回放 15 + 批 2 出卡判分 14 + 批 3 探针 11 + 验收回放 11 = 51 次调用，94,952+52,798 tokens，全部 completed（complete_with_config 逐 attempt 计费，O2 口径费用未知）。

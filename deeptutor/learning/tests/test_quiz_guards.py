@@ -41,6 +41,11 @@ def path_id(tmp_path, monkeypatch):
         raise AssertionError(f"bind must stay offline for these questions: {items!r}")
 
     monkeypatch.setattr(semantic_assessment, "judge_answers", judge)
+
+    async def no_key_review(_config, _questions):
+        return None
+
+    monkeypatch.setattr(semantic_assessment, "verify_choice_keys", no_key_review)
     return "test_path"
 
 

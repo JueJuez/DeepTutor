@@ -548,6 +548,16 @@ async def test_repair_question_tool_voids_wrong_key_from_question_bank(
         "deeptutor.services.session.get_sqlite_session_store", lambda: session_store
     )
     session = await session_store.create_session(title="Mastery Session")
+    # This test deliberately registers a wrong key to exercise the repair
+    # flow — the L5 independent key review would refuse it at registration,
+    # so the review stays offline here. The repair tool remains the backstop
+    # for the residual case (reviewer itself erring on a registered card).
+    from deeptutor.learning import semantic_assessment as _semantic
+
+    async def _no_key_review(_config, _questions):
+        return None
+
+    monkeypatch.setattr(_semantic, "verify_choice_keys", _no_key_review)
     await _build(
         path_id,
         [{"name": "Logic", "knowledge_points": [{"name": "Truth tables", "type": "memory"}]}],

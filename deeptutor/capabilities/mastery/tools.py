@@ -1493,11 +1493,24 @@ class MasteryQuizTool(BaseTool):
                 bind_questions,
             )
 
+            bind_questions_list = pending.questions or [pending]
+            # Text choice questions get the independent key review, which
+            # needs an explicit config (offline/operator registrations pass
+            # none and stay offline).
+            bind_config = None
+            if any(
+                q.question_type == "choice" and q.options and not q.visual_context
+                for q in bind_questions_list
+            ):
+                from deeptutor.services.llm.config import get_llm_config
+
+                bind_config = get_llm_config()
             try:
                 await bind_questions(
                     service.store,
                     progress,
-                    pending.questions or [pending],
+                    bind_questions_list,
+                    config=bind_config,
                     reading_references=kwargs.get("_mastery_reading_references"),
                 )
             except (AssessmentUnavailable, LessonUnavailable) as exc:
