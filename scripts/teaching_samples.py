@@ -135,6 +135,7 @@ def _default_situation(meta: dict) -> str:
 def _attach_verdicts(sample: dict) -> dict:
     """Attach recorded answer verdicts from audit runs, newest auditor first."""
     sources = [
+        ("data/l4-transfer-probe/verdicts-bank.json", "l4_transfer_probe"),
         ("data/semantic-audit-27/verdicts.json", "semantic_audit_27.py"),
         ("data/semantic-audit-23/verdicts.json", "semantic_audit_23.py"),
     ]
@@ -147,6 +148,11 @@ def _attach_verdicts(sample: dict) -> dict:
         payload = json.loads(p.read_text(encoding="utf-8"))
         for entry_key, entry in payload.items():
             if not isinstance(entry, dict) or "classes" not in entry:
+                continue
+            # The transfer probe keys entries by question_id: several samples
+            # share one path, so path_id alone cannot pick the right verdicts.
+            entry_question = entry.get("question_id")
+            if entry_question and entry_question != sample["question"]["question_id"]:
                 continue
             # audit-23 keys entries by case with path_id inside; audit-27 keys
             # entries directly by path_id.
@@ -233,9 +239,101 @@ def _backfill_audit27_answers(sample: dict, answers: list[dict]) -> list[dict]:
     return answers
 
 
+def _resolve_question(path_id: str, question_id: str):
+    """Resolve the sample's own question contract by id, pending or not.
+
+    A path holds many questions over its life: replay must grade the sample's
+    own question, never whichever card happens to be pending right now. (A
+    later registration can replace the pending slot on a shared path —
+    replaying an older sample against the newer contract would misgrade
+    silently.) The interaction store persists every question with its source
+    evidence, so resolution works long after the card was answered.
+    """
+    from deeptutor.learning.storage import LearningStore
+
+    store = LearningStore()
+    progress = store.load(path_id)
+    if progress is None:
+        raise SystemExit(f"the learning path {path_id} no longer exists")
+    pending = progress.pending_question
+    if pending is not None and pending.question_id == question_id:
+        return pending
+    interaction = store.get_interaction(path_id, question_id)
+    if interaction is not None:
+        return interaction.question
+    raise SystemExit(
+        f"question {question_id} is neither pending nor stored on {path_id}; "
+        "the sample cannot be replayed faithfully"
+    )
+
+
+def _assemble_sample(meta: dict, data: dict, question, result_file, learning, reading) -> dict:
+    """Build one sample record from its registry meta and stored question."""
+    from deeptutor.reading.store import unit_quality
+
+    sid = meta["id"]
+    refs = (question.source_evidence or {}).get("sources") or []
+    first_ref = (refs[0].get("reading_reference") or {}) if refs else {}
+    progress = learning.load(data["path_id"])
+    sample = {
+        "schema_version": SCHEMA_VERSION,
+        "sample_id": sid,
+        "set": "holdout" if sid in HOLDOUT_IDS else "dev_regression",
+        "situation": meta.get("situation") or _default_situation(meta),
+        "source": {
+            "material_id": first_ref.get("material_id"),
+            "revision": first_ref.get("revision"),
+            "locators": first_ref.get("locators"),
+            "quality": unit_quality(
+                reading.unit_text(first_ref["material_id"], first_ref["locators"][0])
+            )
+            if first_ref
+            else {},
+        },
+        "objective": meta.get("objective")
+        or (progress.modules[0].knowledge_points[0].name if progress.modules else ""),
+        "knowledge_type": meta.get("class", ""),
+        "question": {
+            "question_id": question.question_id,
+            "prompt": question.prompt,
+            "expected_answer": question.expected_answer,
+            "question_type": question.question_type,
+            "source_evidence_kind": (question.source_evidence or {}).get("kind"),
+        },
+        "grounding": {
+            "lesson_coverage": (
+                progress.lesson_evidence.get(question.knowledge_point_id) or {}
+            ).get("coverage"),
+            "citations_note": meta.get("citations", ""),
+        },
+        "answers": [],
+        "assistance": {"hints_used": 0},
+        "teaching_state": {
+            "source_grounded": progress.source_grounded,
+            "pending_question_present": (
+                progress.pending_question is not None
+                and progress.pending_question.question_id == question.question_id
+            ),
+        },
+        "provenance": {
+            "path_id": data["path_id"],
+            "session_id": data.get("session_id"),
+            "turn_id": data.get("turn_id"),
+            "result_file": str(result_file),
+            "built_at": time.time(),
+            "builder": "scripts/teaching_samples.py build",
+        },
+        "audit": {
+            "auditor": "agent",
+            "disputes": meta.get("disputes", []),
+        },
+    }
+    return _attach_verdicts(sample)
+
+
 def cmd_build(args: argparse.Namespace) -> None:
     from deeptutor.learning.storage import LearningStore
-    from deeptutor.reading.store import ReadingStore, unit_quality
+    from deeptutor.reading.store import ReadingStore
 
     root = Path(args.root)
     root.mkdir(parents=True, exist_ok=True)
@@ -257,64 +355,16 @@ def cmd_build(args: argparse.Namespace) -> None:
             print(f"skip {sid}: no result file", flush=True)
             continue
         data = json.loads(result_file.read_text(encoding="utf-8"))
-        progress = learning.load(data["path_id"])
-        question = progress.pending_question if progress else None
-        if question is None:
-            print(f"skip {sid}: no pending question in store", flush=True)
+        question_id = (data.get("pending_question") or {}).get("question_id") or ""
+        if not question_id:
+            print(f"skip {sid}: result file records no question id", flush=True)
             continue
-        refs = (question.source_evidence or {}).get("sources") or []
-        first_ref = (refs[0].get("reading_reference") or {}) if refs else {}
-        sample = {
-            "schema_version": SCHEMA_VERSION,
-            "sample_id": sid,
-            "set": "holdout" if sid in HOLDOUT_IDS else "dev_regression",
-            "situation": meta.get("situation") or _default_situation(meta),
-            "source": {
-                "material_id": first_ref.get("material_id"),
-                "revision": first_ref.get("revision"),
-                "locators": first_ref.get("locators"),
-                "quality": unit_quality(
-                    reading.unit_text(first_ref["material_id"], first_ref["locators"][0])
-                )
-                if first_ref
-                else {},
-            },
-            "objective": meta.get("objective")
-            or (progress.modules[0].knowledge_points[0].name if progress.modules else ""),
-            "knowledge_type": meta.get("class", ""),
-            "question": {
-                "question_id": question.question_id,
-                "prompt": question.prompt,
-                "expected_answer": question.expected_answer,
-                "question_type": question.question_type,
-                "source_evidence_kind": (question.source_evidence or {}).get("kind"),
-            },
-            "grounding": {
-                "lesson_coverage": (
-                    progress.lesson_evidence.get(question.knowledge_point_id) or {}
-                ).get("coverage"),
-                "citations_note": meta.get("citations", ""),
-            },
-            "answers": [],
-            "assistance": {"hints_used": 0},
-            "teaching_state": {
-                "source_grounded": progress.source_grounded,
-                "pending_question_present": True,
-            },
-            "provenance": {
-                "path_id": data["path_id"],
-                "session_id": data.get("session_id"),
-                "turn_id": data.get("turn_id"),
-                "result_file": str(result_file),
-                "built_at": time.time(),
-                "builder": "scripts/teaching_samples.py build",
-            },
-            "audit": {
-                "auditor": "agent",
-                "disputes": meta.get("disputes", []),
-            },
-        }
-        samples.append(_attach_verdicts(sample))
+        try:
+            question = _resolve_question(data["path_id"], question_id)
+        except SystemExit as exc:
+            print(f"skip {sid}: {exc}", flush=True)
+            continue
+        samples.append(_assemble_sample(meta, data, question, result_file, learning, reading))
 
     out.write_text(
         json.dumps({"built_at": time.time(), "samples": samples}, ensure_ascii=False, indent=2),
@@ -359,18 +409,11 @@ def cmd_replay(args: argparse.Namespace) -> None:
         raise SystemExit(f"sample {args.sample} has no recorded answers to replay")
 
     # Rebuild the exact grading item the audit flow used: the question
-    # contract plus source evidence, loaded fresh from the store by the
-    # sample's provenance path. Grading without the source text would measure
-    # a different contract than the original verdict.
-    from deeptutor.learning.storage import LearningStore
-
-    progress = LearningStore().load(sample["provenance"]["path_id"])
-    if progress is None or progress.pending_question is None:
-        raise SystemExit(
-            f"the learning path {sample['provenance']['path_id']} no longer has "
-            "its pending question; the sample cannot be replayed faithfully"
-        )
-    question = progress.pending_question
+    # contract plus source evidence, resolved by the sample's own question id
+    # from the store. Grading without the source text — or against whichever
+    # card is merely pending now — would measure a different contract than
+    # the original verdict.
+    question = _resolve_question(sample["provenance"]["path_id"], sample["question"]["question_id"])
     base_item = {**semantic.question_contract(question)}
 
     async def run() -> list[dict]:
@@ -424,6 +467,53 @@ def cmd_replay(args: argparse.Namespace) -> None:
     out = out_dir / f"{args.sample}-{time.time_ns()}.json"
     out.write_text(json.dumps(record, ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"replay written -> {out} (diffs: {record['diff_count']})", flush=True)
+
+
+def cmd_add(args: argparse.Namespace) -> None:
+    """Append ONE sample to the bank without rebuilding the others.
+
+    A path holds many questions over its life; a full rebuild resolves every
+    sample from the store by id, but the additive path is the day-to-day one:
+    resolve the sample's own question from the result file's recorded
+    question id, refuse duplicates, append atomically.
+    """
+    from deeptutor.learning.storage import LearningStore
+    from deeptutor.reading.store import ReadingStore
+
+    root = Path(args.root)
+    out = root / "samples.json"
+    if not out.exists():
+        raise SystemExit(f"{out} not found; run build first")
+    payload = json.loads(out.read_text(encoding="utf-8"))
+    if any(s["sample_id"] == args.sample_id for s in payload["samples"]):
+        raise SystemExit(f"{args.sample_id} is already in the bank; refusing to duplicate")
+    registry = json.loads(Path(args.registry).read_text(encoding="utf-8"))
+    meta = next((m for m in registry["samples"] if m["id"] == args.sample_id), None)
+    if meta is None:
+        raise SystemExit(f"{args.sample_id} is not in the registry; add it there first")
+    result_file = (
+        Path(args.result_file)
+        if args.result_file
+        else _find_result_file(meta.get("case_hint") or _case_hint(args.sample_id))
+    )
+    if result_file is None:
+        raise SystemExit("no result file found for this sample")
+    data = json.loads(result_file.read_text(encoding="utf-8"))
+    question_id = (data.get("pending_question") or {}).get("question_id") or ""
+    if not question_id:
+        raise SystemExit("the result file records no question id")
+    question = _resolve_question(data["path_id"], question_id)
+    sample = _assemble_sample(meta, data, question, result_file, LearningStore(), ReadingStore())
+    payload["samples"].append(sample)
+    payload["built_at"] = time.time()
+    out.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    failures = [c for c in mechanical_check(sample) if not c["ok"]]
+    print(
+        f"added {args.sample_id} -> {out}; mechanical failures: {len(failures)}",
+        flush=True,
+    )
+    for c in failures:
+        print(json.dumps(c, ensure_ascii=False), flush=True)
 
 
 def cmd_report(args: argparse.Namespace) -> None:
@@ -493,6 +583,13 @@ def main() -> None:
     p_replay.add_argument("--sample", required=True)
     p_replay.add_argument("--allow-holdout", action="store_true")
     p_replay.set_defaults(func=cmd_replay)
+
+    p_add = sub.add_parser("add", help="append one sample from the registry without a rebuild")
+    p_add.add_argument("--root", default="data/teaching-samples")
+    p_add.add_argument("--sample-id", required=True)
+    p_add.add_argument("--registry", default="data/semantic-samples-24/sample-registry.json")
+    p_add.add_argument("--result-file", default="")
+    p_add.set_defaults(func=cmd_add)
 
     p_report = sub.add_parser("report", help="aggregate mechanical checks, disputes and replays")
     p_report.add_argument("--root", default="data/teaching-samples")
