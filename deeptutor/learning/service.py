@@ -116,21 +116,29 @@ def _question_independent(question: PendingQuestion) -> bool:
 
 
 def _record_question_stem(progress: LearningProgress, question: PendingQuestion) -> None:
-    """Persist the normalized stem for the objective's duplicate registry.
+    """Persist the normalized stem and design operation for the objective.
 
-    Called once per registered question; the rolling history is capped so the
-    aggregate cannot grow without bound.
+    Called once per registered question; both rolling histories are capped so
+    the aggregate cannot grow without bound. The stem registry feeds the
+    mechanical duplicate guard, the operation history the variety hint.
     """
-    from deeptutor.learning.pending import STEM_HISTORY_LIMIT, quiz_stem_key
+    from deeptutor.learning.pending import (
+        QUESTION_OPERATION_LIMIT,
+        STEM_HISTORY_LIMIT,
+        quiz_stem_key,
+    )
 
     key = quiz_stem_key(question.prompt)
-    if not key:
-        return
-    history = progress.question_stem_keys.setdefault(question.knowledge_point_id, [])
-    if key in history:
-        return
-    history.append(key)
-    del history[:-STEM_HISTORY_LIMIT]
+    if key:
+        history = progress.question_stem_keys.setdefault(question.knowledge_point_id, [])
+        if key not in history:
+            history.append(key)
+            del history[:-STEM_HISTORY_LIMIT]
+    operation = (question.design.operation if question.design else "").strip()
+    if operation:
+        operations = progress.question_operations.setdefault(question.knowledge_point_id, [])
+        operations.append(operation)
+        del operations[:-QUESTION_OPERATION_LIMIT]
 
 
 def _objective_fingerprint(kp: KnowledgePoint) -> tuple[str, str]:

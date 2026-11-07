@@ -265,6 +265,23 @@ class PendingOption(BaseModel):
     body: str
 
 
+class QuestionDesign(BaseModel):
+    """Server-side metadata describing what a question tests and how.
+
+    Borrowed from LogiNote's ``QuickCheckDesign`` (main@d3ffa2e1): the
+    cognitive operation, the scenario it presents, the aspect it probes and
+    the detail a full answer requires. It is provenance for variety planning
+    and review — never shown on the answer card and never a grading input.
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
+    operation: str = ""
+    scenario: str = ""
+    focus: str = ""
+    required_detail: str = ""
+
+
 class PendingQuestion(BaseModel):
     """A question posed to the learner and awaiting their answer.
 
@@ -305,6 +322,9 @@ class PendingQuestion(BaseModel):
     created_at: float = Field(default_factory=time.time)
     visual_context: dict[str, Any] = Field(default_factory=dict)
     accepted_answers: list[str] = Field(default_factory=list)
+    # How this question tests the objective (operation/scenario/focus).
+    # Server-side metadata like ``explanation``; optional on legacy cards.
+    design: QuestionDesign | None = None
     # One active interaction can present multiple independent questions. The
     # parent owns lifecycle only; answer keys and credit remain on its leaves.
     questions: list[PendingQuestion] = Field(default_factory=list)
@@ -675,6 +695,10 @@ class LearningProgress(BaseModel):
     # last, capped at pending.STEM_HISTORY_LIMIT). Mechanical duplicate guard
     # for mastery_quiz registration; not a semantic classifier.
     question_stem_keys: dict[str, list[str]] = Field(default_factory=dict)
+    # Rolling per-objective registry of design operations (most recent last,
+    # capped at pending.QUESTION_OPERATION_LIMIT) feeding the mechanical
+    # variety hint in the quiz tool result.
+    question_operations: dict[str, list[str]] = Field(default_factory=dict)
     # A learner may explicitly claim prior mastery.  Policy exposes this as a
     # separate provenance (``mastery_source=learner``); assessed mastery and
     # its evidence remain untouched and can take over later.

@@ -1211,12 +1211,80 @@ class MasteryQuizTool(BaseTool):
                     required=False,
                     enum=list(_DIFFICULTIES),
                 ),
+                ToolParameter(
+                    name="design",
+                    type="object",
+                    required=False,
+                    description=(
+                        "Optional design metadata describing HOW this question tests the "
+                        "objective: {operation, scenario, focus?, required_detail?}. "
+                        "operation must be one of: contrast (辨析差异条件) | counterfactual "
+                        "(改变一个关键条件，问结论是否仍成立) | diagnose (判断给定情形哪里出问题) | "
+                        "construct (构造满足条件的例子/方案/步骤) | predict (用原理推断新情境的结果) | "
+                        "evidence_gap (判断现有信息是否足以支撑结论) | design_test (设计验证主张的检验办法) | "
+                        "revise (修正有缺陷的说法/方案). scenario is required whenever operation is "
+                        "set: it names the concrete situation the question presents — put the "
+                        "situation itself in 'question'; scenario describes it for the record. "
+                        "Transfer/new-situation questions (predict/construct/counterfactual) are "
+                        "first-class, not extras. Vary the operation across questions on the same "
+                        "objective; the tool result reports the suggested next one. Server-side "
+                        "metadata only — it never reaches the learner's card."
+                    ),
+                    items={
+                        "type": "object",
+                        "properties": {
+                            "operation": {
+                                "type": "string",
+                                "description": "One of the eight fixed operations.",
+                            },
+                            "scenario": {
+                                "type": "string",
+                                "description": "The concrete situation this question presents.",
+                            },
+                            "focus": {
+                                "type": "string",
+                                "description": "The aspect being probed, in a few words.",
+                            },
+                            "required_detail": {
+                                "type": "string",
+                                "description": "What a full answer must cover.",
+                            },
+                        },
+                        "required": ["operation", "scenario"],
+                    },
+                ),
             ],
         )
         leaf_parameters = {p.name: p.to_schema() for p in definition.parameters}
+        from deeptutor.learning.pending import QUIZ_OPERATIONS
         from deeptutor.learning.visual_practice import visual_request_schema
 
         leaf_parameters["visual"].update(visual_request_schema())
+        # to_schema() keeps only type/description for object parameters, so
+        # re-attach the design shape for group leaves (same pattern as visual).
+        leaf_parameters["design"]["items"] = {
+            "type": "object",
+            "properties": {
+                "operation": {
+                    "type": "string",
+                    "description": "One of the eight fixed operations.",
+                    "enum": list(QUIZ_OPERATIONS),
+                },
+                "scenario": {
+                    "type": "string",
+                    "description": "The concrete situation this question presents.",
+                },
+                "focus": {
+                    "type": "string",
+                    "description": "The aspect being probed, in a few words.",
+                },
+                "required_detail": {
+                    "type": "string",
+                    "description": "What a full answer must cover.",
+                },
+            },
+            "required": ["operation", "scenario"],
+        }
         for parameter in definition.parameters:
             if parameter.name in {"knowledge_point_id", "question", "expected_answer"}:
                 parameter.required = False
@@ -1301,6 +1369,7 @@ class MasteryQuizTool(BaseTool):
                 "options",
                 "explanation",
                 "difficulty",
+                "design",
                 "visual",
                 "questions",
                 "replace_question_id",
@@ -1354,6 +1423,7 @@ class MasteryQuizTool(BaseTool):
                 "options",
                 "explanation",
                 "difficulty",
+                "design",
                 "visual",
             }
             leaves = []
@@ -1479,6 +1549,23 @@ class MasteryQuizTool(BaseTool):
             "question_id": pending.question_id,
             "pending_question": public_question.to_dict(),
         }
+        if created:
+            from deeptutor.learning.pending import next_operation_hint
+
+            hint_kp, _, _ = find_knowledge_point(progress, pending.knowledge_point_id)
+            recent_operations = progress.question_operations.get(pending.knowledge_point_id, [])
+            payload["design_hint"] = {
+                "next_operation": next_operation_hint(
+                    hint_kp.type.value if hint_kp is not None else "",
+                    recent_operations,
+                ),
+                "recent_operations": recent_operations[-3:],
+                "note": (
+                    "Vary the cognitive operation of future questions on this objective "
+                    "(design.operation + design.scenario); transfer/new-situation questions "
+                    "are first-class."
+                ),
+            }
         end_turn = kwargs.get("_end_turn_on_card")
         if callable(end_turn):
             # Posing the question ends the turn (see
@@ -1593,6 +1680,43 @@ class MasteryQuizTool(BaseTool):
                 content="mastery_quiz needs knowledge_point_id, question, and expected_answer.",
                 success=False,
             )
+        from deeptutor.learning.models import QuestionDesign
+        from deeptutor.learning.pending import QUIZ_OPERATIONS
+
+        raw_design = kwargs.get("design")
+        design: QuestionDesign | None = None
+        if raw_design is not None:
+            if not isinstance(raw_design, dict):
+                return ToolResult(
+                    content=(
+                        "design must be an object like "
+                        "{operation, scenario, focus, required_detail}."
+                    ),
+                    success=False,
+                )
+            operation = str(raw_design.get("operation") or "").strip()
+            scenario = str(raw_design.get("scenario") or "").strip()
+            if operation not in QUIZ_OPERATIONS:
+                return ToolResult(
+                    content=(f"design.operation must be one of: {', '.join(QUIZ_OPERATIONS)}."),
+                    success=False,
+                )
+            if not scenario:
+                return ToolResult(
+                    content=(
+                        "design.scenario is required whenever design.operation is set: "
+                        "name the concrete situation the question presents (a new "
+                        "example, a changed condition, a case to diagnose), so the "
+                        "operation is real variety and not a label."
+                    ),
+                    success=False,
+                )
+            design = QuestionDesign(
+                operation=operation,
+                scenario=scenario[:300],
+                focus=str(raw_design.get("focus") or "").strip()[:160],
+                required_detail=str(raw_design.get("required_detail") or "").strip()[:300],
+            )
         try:
             q_type, options, expected = _normalize_quiz_contract(
                 kwargs.get("question_type"), kwargs.get("options"), expected
@@ -1684,6 +1808,7 @@ class MasteryQuizTool(BaseTool):
             difficulty=_normalize_difficulty(kwargs.get("difficulty")),
             visual_context=visual_context,
             accepted_answers=accepted_answers,
+            design=design,
         )
         return pending, echoed_options, kp
 

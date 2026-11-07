@@ -256,6 +256,61 @@ class PublicPendingQuestion:
 
 STEM_HISTORY_LIMIT = 20
 
+# Cognitive operations a question can use (LogiNote quickCheck vocabulary,
+# adapted to book learning). Frozen set: unknown operations are refused at
+# registration instead of becoming free-text noise.
+QUIZ_OPERATIONS = (
+    "contrast",  # 比较：辨析相近概念、情形或做法的差异条件
+    "counterfactual",  # 反事实：改变或移除一个关键条件，判断原结论是否仍成立
+    "diagnose",  # 诊断：判断给定情形哪里出了问题、缺了什么
+    "construct",  # 构造：给出满足条件的例子、方案或步骤
+    "predict",  # 预测：用原理推断一个新情境会怎样
+    "evidence_gap",  # 证据缺口：判断现有信息是否足以支撑一个结论
+    "design_test",  # 设计检验：提出验证某个主张的具体检验办法
+    "revise",  # 改写：修正一个有缺陷的说法、方案或步骤
+)
+
+# Mechanical variety hint: per-type preference order (LogiNote plans per
+# criterion; our closest analogue is the objective type). Pure function —
+# the tutor decides, the server only suggests.
+_DEFAULT_OPERATION_ORDER = QUIZ_OPERATIONS
+_OPERATION_PREFERENCES: dict[str, tuple[str, ...]] = {
+    "concept": (
+        "counterfactual",
+        "contrast",
+        "diagnose",
+        "construct",
+        "predict",
+        "evidence_gap",
+        "design_test",
+        "revise",
+    ),
+    "design": (
+        "construct",
+        "design_test",
+        "predict",
+        "counterfactual",
+        "contrast",
+        "evidence_gap",
+        "diagnose",
+        "revise",
+    ),
+}
+QUESTION_OPERATION_LIMIT = 10
+
+
+def next_operation_hint(kp_type: str, recent: list[str]) -> str:
+    """The highest-preference operation not among the objective's recent two.
+
+    ``recent`` is the objective's rolling operation history (most recent
+    last). When every preferred operation was used recently, fall back to
+    the first preference rather than inventing an operation.
+    """
+    order = _OPERATION_PREFERENCES.get(kp_type, _DEFAULT_OPERATION_ORDER)
+    recent_two = {op for op in recent[-2:] if op}
+    return next((op for op in order if op not in recent_two), order[0])
+
+
 # A stem or option body that hardcodes an option position would contradict
 # the card after registration shuffles option order, so such questions are
 # refused outright. The set is deliberately conservative: false positives
@@ -328,6 +383,8 @@ def public_pending_question(pending: PendingQuestion) -> PublicPendingQuestion:
 
 __all__ = [
     "OPTION_PREFIX_RE",
+    "QUESTION_OPERATION_LIMIT",
+    "QUIZ_OPERATIONS",
     "STEM_HISTORY_LIMIT",
     "canonical_labels",
     "PublicPendingOption",
@@ -337,6 +394,7 @@ __all__ = [
     "option_label_intent",
     "parse_options",
     "position_dependent_quiz_text",
+    "next_operation_hint",
     "positional_label",
     "public_pending_question",
     "quiz_stem_key",

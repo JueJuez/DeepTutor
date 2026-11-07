@@ -237,3 +237,112 @@ class TestGroupBatchStemDedup:
             ],
         )
         assert result.success is True
+
+
+class TestDesignLayer:
+    @pytest.mark.asyncio
+    async def test_design_is_recorded_and_hinted(self, path_id):
+        await _build_basic(path_id)
+        status = json.loads((await MasteryStatusTool().execute(_mastery_path_id=path_id)).content)
+        kp_id = status["next"]["knowledge_point_id"]
+
+        result = await MasteryQuizTool().execute(
+            _mastery_path_id=path_id,
+            knowledge_point_id=kp_id,
+            question="2+2?",
+            expected_answer="4",
+            question_type="short",
+            design={"operation": "predict", "scenario": "Two apples are added to two apples."},
+        )
+        assert result.success is True
+        payload = (result.metadata or {})["mastery_quiz"]
+        assert payload["design_hint"]["recent_operations"] == ["predict"]
+        # The just-used operation is excluded from the next suggestion.
+        assert payload["design_hint"]["next_operation"] != "predict"
+        progress = _load(path_id)
+        assert progress.question_operations.get(kp_id) == ["predict"]
+        assert progress.question_stem_keys.get(kp_id) == [quiz_stem_key("2+2?")]
+
+    @pytest.mark.asyncio
+    async def test_design_survives_persistence(self, path_id):
+        await _build_basic(path_id)
+        status = json.loads((await MasteryStatusTool().execute(_mastery_path_id=path_id)).content)
+        kp_id = status["next"]["knowledge_point_id"]
+
+        await MasteryQuizTool().execute(
+            _mastery_path_id=path_id,
+            knowledge_point_id=kp_id,
+            question="2+2?",
+            expected_answer="4",
+            question_type="short",
+            design={
+                "operation": "counterfactual",
+                "scenario": "如果再加一个苹果而不是两个",
+                "focus": "加法交换",
+                "required_detail": "说出总数并说明理由",
+            },
+        )
+        interaction = LearningService(LearningStore()).store.get_active_interaction(path_id)
+        design = interaction.question.design
+        assert design is not None
+        assert design.operation == "counterfactual"
+        assert design.scenario == "如果再加一个苹果而不是两个"
+        assert design.focus == "加法交换"
+
+    @pytest.mark.asyncio
+    async def test_unknown_operation_refused(self, path_id):
+        await _build_basic(path_id)
+        status = json.loads((await MasteryStatusTool().execute(_mastery_path_id=path_id)).content)
+        kp_id = status["next"]["knowledge_point_id"]
+
+        result = await MasteryQuizTool().execute(
+            _mastery_path_id=path_id,
+            knowledge_point_id=kp_id,
+            question="2+2?",
+            expected_answer="4",
+            question_type="short",
+            design={"operation": "vibes", "scenario": "anything"},
+        )
+        assert result.success is False
+        assert "design.operation must be one of" in result.content
+
+    @pytest.mark.asyncio
+    async def test_operation_without_scenario_refused(self, path_id):
+        await _build_basic(path_id)
+        status = json.loads((await MasteryStatusTool().execute(_mastery_path_id=path_id)).content)
+        kp_id = status["next"]["knowledge_point_id"]
+
+        result = await MasteryQuizTool().execute(
+            _mastery_path_id=path_id,
+            knowledge_point_id=kp_id,
+            question="2+2?",
+            expected_answer="4",
+            question_type="short",
+            design={"operation": "predict"},
+        )
+        assert result.success is False
+        assert "design.scenario is required" in result.content
+
+    def test_group_leaf_schema_carries_design(self):
+        definition = MasteryQuizTool().get_definition()
+        schema = definition.to_openai_schema()["function"]["parameters"]
+        items = schema["properties"]["questions"]["items"]
+        assert "design" in items["properties"]
+        leaf_design = items["properties"]["design"]["items"]
+        assert leaf_design["required"] == ["operation", "scenario"]
+        assert "counterfactual" in leaf_design["properties"]["operation"]["enum"]
+
+
+class TestNextOperationHint:
+    def test_prefers_operations_not_recently_used(self):
+        from deeptutor.learning.pending import next_operation_hint
+
+        assert next_operation_hint("concept", ["counterfactual"]) == "contrast"
+        assert next_operation_hint("concept", ["counterfactual", "contrast"]) == "diagnose"
+        assert next_operation_hint("memory", ["counterfactual", "contrast"]) == "diagnose"
+        assert next_operation_hint("design", []) == "construct"
+
+    def test_falls_back_to_first_preference_when_all_recent(self):
+        from deeptutor.learning.pending import QUIZ_OPERATIONS, next_operation_hint
+
+        assert next_operation_hint("concept", list(QUIZ_OPERATIONS)) == "counterfactual"
