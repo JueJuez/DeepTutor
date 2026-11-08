@@ -160,15 +160,17 @@ Omni-Edu 提供 K–12 教育模型、推理 SDK、数据构建与评测工具�
 
 ### 待用户决策（整体复核入口 · 醒来先看这里）
 
-自动化已完成 DEV_MVP → ACCEPT_MVP → DEV_ENHANCE → ACCEPT_ENHANCE 全部可用工作，phase=`DONE_AWAITING_REVIEW`；2026-11-08 L 系列（LogiNote 借鉴增强）亦已完成并验收（第 11 节）。以下五项需要你拍板或本人参与；验收表见第 9、10、11.5 节。
+自动化已完成 DEV_MVP → ACCEPT_MVP → DEV_ENHANCE → ACCEPT_ENHANCE 全部可用工作，phase=`DONE_AWAITING_REVIEW`；2026-11-08 L 系列（LogiNote 借鉴增强）已完成并验收（第 11 节）。**2026-11-08 用户已裁决五项中的三项**（C2 批量=不做、E4=不开展、分歧②=等价成立，见 11.2 节与 11.5 节分歧项 1 的处置），现余两项：
 
 | 事项 | 背景 | 状态 |
 |---|---|---|
-| C2 真实批量生成 | 样本扩展若构成真实批量生成，按第 6 节约定需用户确认范围与预算 | 等待用户 |
-| C6 个人试用与延迟复测 | 必须用户本人独立作答，含至少 7 天延迟复测 | 等待用户与时间条件 |
-| E4 教育模型实验 | 涉及本地硬件、显存、成本与模型选择，计划明确最后决定 | 等待用户 |
-| 第二份方法类 PDF | 综合样本要求 2 份文字型 PDF（概念类+方法类），现有书籍仅 1 份 PDF（agentic-ai-guide，概念类）+ 1 份 EPUB（方法类章节）；第二份方法类 PDF 需用户提供本地路径（原计划第 7 节第 1 条） | 等待用户 |
-| 分歧②人工复核（L 系列遗留） | S4 等价表达被判 partial：L1 提示词硬化后 judge 的拒绝理由是"替代方案实质不完整"而非措辞差异（轮 2 回放如实保留）；等价边界的实质语义分歧，需要你裁决该样本的期望类是否成立（细节见第 11.5 节分歧项 1） | 等待用户 |
+| C6 个人试用与延迟复测 | 必须用户本人独立作答，含至少 7 天延迟复测。用户 2026-11-08 已知悉协议 | 等待用户真实使用与时间条件 |
+| 第二份方法类 PDF | 用户 2026-11-08 提名 4 本候选（《玩赚今日头条》《人人都能做出爆款短视频》《版式设计原理》《小红书爆款规律》），**经核对均属方法类**，符合缺口定义；其中《爆款短视频》仓库 docs/ 现存为 EPUB 版（只能填 EPUB 槽位，不能替代方法类 PDF）。需要用户提供任一本的**文字型 PDF**（非扫描影印版，sparse 门禁会拦扫描残页）路径；若手头确无 PDF 版，用户明示后按"用户范围决定关闭此项"记录（验收按实际覆盖收窄） | 等待用户给路径或明示关闭 |
+
+已裁决项（2026-11-08，留档）：
+- **C2 真实批量生成：不做批量**——个人学习按需出卡即产品形态，无需批量预生成；本项关闭。
+- **E4 教育模型实验：暂不开展**——E1–E3 证据未显示现用模型稳定不足；本项关闭（若日后想试再开）。
+- **分歧②：等价成立**——S4 替代方案问法按目的判定，source 与 learner 的替代问法都是好问题；judge 提示词已按"目的达到即等价"校准（2026-11-08），judge 重放仍持 partial 异议，按用户语义权威覆盖样本判类为 correct，judge 限如实记为已知边界（细节见 11.5 节分歧项 1 处置）。样本库 disputed_answers 现为 0（含 S2 dont_know 期望类按 L1 裁决后政策更新的顺带修正）。
 
 （后续轮次发现的新决策项追加于此；用户裁决后移入轮次记录并更新对应任务行。）
 
@@ -248,11 +250,19 @@ Omni-Edu 提供 K–12 教育模型、推理 SDK、数据构建与评测工具�
 1. **分歧①（dont_know 判类）**：用户要求分情形讨论后裁决。情形拆解：部分作答→partial（既有契约）；判分方证据不足→ungraded（无争议）；**唯一分歧点是明确声明"不知道所考内容"**。agent 推荐「ungraded + 巩固信号」（回执不编错误原因、不进错题、不扣掌握分，但补复习调度信号，修复"声明不知道的尝试完全不落盘、目标可能永不进跨会话复习队列"的实测缺口——`_evaluate_question` 对非 final 回执跳过 `_apply_grade`，service.py:1684）；提问答复未收到，按推荐实施，用户可在验收时否决。
 2. **闭合题答案钥交叉复核**：用户拍板「出题注册时复核」——错钥在学习者看到题目前拦截，判分时不加调用。
 
+**2026-11-08 追加裁决**（用户逐项答复待决策五项）：
+
+3. **C2 真实批量生成：不做批量**（用户选项 A）——个人学习按需出卡即产品形态；本项关闭。
+4. **E4 教育模型实验：暂不开展**——用户决定挂起；本项关闭，日后可重开。
+5. **分歧②：等价成立**——用户裁定 source 与 learner 的替代问法**都是好问题、都能给学习者带来帮助**，替代方案按"目的达到即等价"判定，不二选一。落地：judge 提示词补"替代方案/举例类作答按目的判定，形式不同或未复述原文限定词不降 partial（目的落空才 partial）"；重放 S4（replay S4-1794098755）**judge 仍判 partial**（它把"未来导向/间接"视为方法目的本身）——按用户语义权威将样本该行判类覆盖为 correct（带 owner_ruling 注记与重放证据指针），judge 持续异议如实记为该边界上"judge 比所有者标准更严"的已知限制，不继续调提示词刷绿。顺带修正：S2 dont_know 行的期望类 incorrect 为 L1 裁决前旧标准，更新为 ungraded 并清除过期分歧标记。样本库 report：6 样本 0 机械失败、**disputed_answers 0**。
+6. **C6**：用户已知悉协议（真实学习→独立作答→后测→≥7 天无提示复测），等待真实使用与时间条件。
+7. **第二份方法类 PDF**：用户提名《玩赚今日头条》《人人都能做出爆款短视频》《版式设计原理》《小红书爆款规律》——经核对**均属方法类**，符合缺口定义；《爆款短视频》仓库现存为 EPUB（填 EPUB 槽位，不替代 PDF）。等用户给任一本的文字型 PDF 路径，或明示关闭此项。
+
 ### 11.3 L 系列任务表
 
 | ID / 批次 | 工作与交付物 | 实施入口 | 边界 | 状态 |
 |---|---|---|---|---|
-| L1 / 批 1 | 判分语义硬化：judge 提示显式三规则（声明不知道→ungraded 永不 incorrect；等价表达保留核心含义与条件→correct 不降 partial；结论对但解释不可靠→partial）；`Verdict` 加可选 `declared_unknown`（默认 None 向后兼容）；声明不知道时记 LearningEvidence（result=ungraded、quality 0.0、assessment_type=declared_unknown）+ 现有 `schedule_review` 喂巩固信号；不建 QuizAttempt、不写 ErrorRecord、不动 mastery | `semantic_assessment.py`（judge 提示 :172-179、Verdict :25-29）、`service.py`（`_evaluate_question` :1684、`_apply_grade` :647 防御） | 不改 scheduler 算法只喂输入；旧回执无新字段=现状行为；E1 dev 集真模型回放验证 S1/S5 incorrect→ungraded、S4 等价→correct | **完成（2026-11-08 批 1）**：judge 三规则 + `declared_unknown` + 巩固信号（单题与组合题两路径，`_record_declared_unknown`，"记录一次、标记随回执续载"的重试幂等）；quality 映射两处防御 `.get`；tools.py tutor 文案按 declared_unknown 分流。测试：新增 `test_declared_unknown.py` 8 项；回归 `deeptutor/learning/tests`+`test_reading_quiz_answers.py` 723 passed。E1 dev 集真模型回放 S1/S4/S5：15 调用 43,880+12,602 tokens 全 completed（O2 口径费用未知）——三卡 dont_know 全部 ungraded+declared_unknown（**分歧①按裁决收敛**），S5 equivalent→correct、S1 diffs 0、S5 diffs 0；**S4 equivalent 仍 partial**（judge 理由为替代方案实质不完整，非措辞差异，不落入"措辞差异不降 partial"规则覆盖面）——**分歧②如实保留**，属等价边界的实质语义分歧，留人工复核裁决 |
+| L1 / 批 1 | 判分语义硬化：judge 提示显式三规则（声明不知道→ungraded 永不 incorrect；等价表达保留核心含义与条件→correct 不降 partial；结论对但解释不可靠→partial）；`Verdict` 加可选 `declared_unknown`（默认 None 向后兼容）；声明不知道时记 LearningEvidence（result=ungraded、quality 0.0、assessment_type=declared_unknown）+ 现有 `schedule_review` 喂巩固信号；不建 QuizAttempt、不写 ErrorRecord、不动 mastery | `semantic_assessment.py`（judge 提示 :172-179、Verdict :25-29）、`service.py`（`_evaluate_question` :1684、`_apply_grade` :647 防御） | 不改 scheduler 算法只喂输入；旧回执无新字段=现状行为；E1 dev 集真模型回放验证 S1/S5 incorrect→ungraded、S4 等价→correct | **完成（2026-11-08 批 1）**：judge 三规则 + `declared_unknown` + 巩固信号（单题与组合题两路径，`_record_declared_unknown`，"记录一次、标记随回执续载"的重试幂等）；quality 映射两处防御 `.get`；tools.py tutor 文案按 declared_unknown 分流。测试：新增 `test_declared_unknown.py` 8 项；回归 `deeptutor/learning/tests`+`test_reading_quiz_answers.py` 723 passed。E1 dev 集真模型回放 S1/S4/S5：15 调用 43,880+12,602 tokens 全 completed（O2 口径费用未知）——三卡 dont_know 全部 ungraded+declared_unknown（**分歧①按裁决收敛**），S5 equivalent→correct、S1 diffs 0、S5 diffs 0；**S4 equivalent 仍 partial**（judge 理由为替代方案实质不完整，非措辞差异，不落入"措辞差异不降 partial"规则覆盖面）——**分歧②如实保留**，属等价边界的实质语义分歧，留人工复核裁决（**后已于 2026-11-08 由用户裁决收敛，见 11.2 节追加裁决与 11.5 节分歧项 1 处置**） |
 | L2 / 批 1 | 机械防线：题干归一化查重 + 选择题位置依赖题拦截 | `tools.py`（`_normalize_quiz_contract` :227、注册路径）、`models.py`、`pending.py` | 纯机械不加模型调用；拒绝时 tutor 收明确错误可换题 | **完成（2026-11-08 批 1，含一处范围修正）**：①位置依赖题硬拒（题干+选项体保守正则：以上都对/选A/第X个选项/all of the above，经 `position_dependent_quiz_text`，`_build_question` 拦截）；②组合题批内同干硬拒（归一化 `quiz_stem_key`：NFKC+casefold+去标点空白）；③`question_stem_keys` 滚动历史（cap 20）注册时记录。**范围修正（如实记录）**：跨轮同干**不硬拒**——既有 retry 流依赖重出同题（ErrorRecord retry history、scheduler 失败重试、`test_quiz_then_grade_drives_memory_gate` 三轮同题驱动掌握门），且 LogiNote 参照实现本身也只在同批生成内硬拒、历史仅作提示侧软约束；跨轮多样性改由 playbook 与 stem 历史（L3 注入）软驱动。测试：新增 `test_quiz_guards.py` 23 项（含"跨轮同题仍放行"回归） |
 | L3 / 批 2 | 题目设计层：`mastery_quiz` 可选 `design{operation,scenario,focus,required_detail}` 参数；`PendingQuestion.design` 可选字段；服务端机械计算目标操作历史并注入推荐下一操作（不硬规划）；zh/en playbook 出题指导（迁移/反事实/新情境一等题类） | `tools.py`（`_build_question`）、`models.py`、`prompts/{zh,en}/mastery_loop.yaml` | design 为元数据不展示（零前端改动）；tutor 自主采纳推荐 | **完成（2026-11-08 批 2，commit 8dee5ab3）**：`QuestionDesign` 模型 + `PendingQuestion.design`（服务端元数据，不出公投影、不入判分契约）；8 种操作冻结枚举（contrast/counterfactual/diagnose/construct/predict/evidence_gap/design_test/revise），operation+scenario 必须成对给出（无情境的操作标签直接拒绝）；`question_operations` 滚动历史（cap 10）注册时记录；工具结果注入 `design_hint`（`next_operation_hint` 按题型偏好序+近 2 次排除，纯机械建议）；组合题 leaf schema 注入 design items（照 visual 模式）；双语 playbook「题型设计层：变换考法，而不是换个说法重问」。测试：`test_quiz_guards.py` 增 7 项（含 leaf schema、hint、拒绝路径）；learning 全套 712 passed |
 | L4 / 批 2 | 迁移情形样本：用 L3 真模型小批出 1–2 张 transfer/新情境卡（S6/S7）+ 作答 + 判分，入 E1 样本库，report 更新情形覆盖 | `scripts/teaching_samples.py`、`data/teaching-samples/`（git-ignored） | 逐小批、估 10–20 次调用上限 30；沿轮 6/7 先例；依赖 L3 | **完成（2026-11-08 批 2，S6 一张达"1–2 张"下限，S7 未出）**：真模型链路 propose→`_build_question` 解析 design→bind 引文支持审查（provenance=adapted）→注册（经 service replace 替换 S1 路径旧挂起位）→五类作答（操作员撰答，沿轮 8 先例）→真模型判分 **5/5 按预期**（correct/equivalent→correct、partial、wrong→incorrect、dont_know→ungraded+declared_unknown）；`teaching_samples.py add` 入库，report：6 样本 0 机械失败，**transfer_failure 情形已覆盖**（7 种无样本→6 种）。真模型 14 次调用 25,311+19,230 tokens 全 completed（含 2 次脚本异步 bug 损耗的 propose，如实记）。证据 `data/l4-transfer-probe/`（git-ignored）。**过程中发现并修复 E1 工具完整性缺陷（如实记，超计划范围的最小必要修复）**：S6 注册替换共享路径挂起位后，`replay` 按 `pending_question` 解析题面会让 S1/S4/S5 重放**静默拿错题**——改为按样本自身 question_id 从交互存储解析（`_resolve_question`，挂起优先、交互回退），S1 重放实证（diffs 0，按旧题判分正确）；新增 `add` 子命令（单样本追加、拒绝重复、不动既有样本）；`_attach_verdicts` 支持按 question_id 键的 verdict 文件（l4 探针）且不遮蔽同路径旧样本；build 同步改为按 result 文件记录的题号解析。测试：`test_teaching_samples.py` 9→13 项 |
@@ -280,10 +290,12 @@ Omni-Edu 提供 K–12 教育模型、推理 SDK、数据构建与评测工具�
 | L5 答案钥注册复核 | passed | `test_key_review.py` 11 项；真模型探针错钥拒绝/一致钥通过；离线纪律修复（回归测试不再打真实网络）；视觉题与 config=None 路径有专项测试。**边界**：reviewer 与出题同时出错的残余场景由 repair 工具兜底（有测试） |
 | E1 工具完整性（计划外修复） | passed | `_resolve_question` 按题号解析 + `add` 子命令 + verdicts 按题过滤；`test_teaching_samples.py` 13 项；S1/S6 双重放实证（共享路径、各自按己题判分，均 diffs 0） |
 
-**分歧与边界（如实保留，不刷绿）**：
-1. **分歧②（S4 等价表达被判 partial）仍未收敛**——L1 提示词硬化后轮 2 回放仍 partial，judge 理由为"替代方案实质不完整"而非措辞差异，不落入"措辞差异不降 partial"规则覆盖面；属等价边界的实质语义分歧，留人工复核裁决（复核人：用户）。
-2. L1 的 dont_know 裁决方案（ungraded+巩固信号）按 agent 推荐实施（11.2 节），用户在验收复核时可否决；若否决，回退路径：judge 提示删 declared_unknown 规则 + 停用巩固信号（单点开关 `verify_choice_keys` 同理可回退）。
+**分歧与边界（处置与留存，不刷绿）**：
+1. **分歧②已裁决（2026-11-08 用户）**：等价成立——替代方案按目的判定，两类替代问法都是好问题。处置：judge 提示词补目的判定规则；重放 S4 judge 仍 partial（把"未来导向/间接"视为目的本身），按用户语义权威将样本该行覆盖为 correct（owner_ruling 注记 + 重放证据指针 `replays/S4-1794098755…`）；**judge 持续异议如实保留为已知限制**——该边界上 judge 比所有者标准更严，未继续调提示词刷绿。顺带：S2 dont_know 期望类按 L1 裁决后政策更新（incorrect→ungraded），report disputed_answers 现为 0。
+2. L1 的 dont_know 裁决方案（ungraded+巩固信号）按 agent 推荐实施（11.2 节），用户 2026-11-08 复核待决策清单时未否决；若日后否决，回退路径：judge 提示删 declared_unknown 规则 + 停用巩固信号（单点开关 `verify_choice_keys` 同理可回退）。
 3. L4 迁移样本 S6 一张；6 种教学情形仍无样本（report 如实列）。
 4. L5 探针"一致钥卡"注册为 no-op（挂起位占用），其审核链证据完整但注册路径的真模型一致案由 `test_consistent_key_registers`（假 provider）覆盖。
+5. **judge 等价边界的已知限**（分歧②处置的副产物）：目的判定规则下 judge 对"概括未复述限定词"的替代方案仍偏严；真实使用（C6）中若再遇同型分歧，按同一权威流程裁决（用户裁定 → 样本注记覆盖 → judge 限留档），不自动刷绿。
 
 **L 系列真模型消耗（台账口径）**：批 1 回放 15 + 批 2 出卡判分 14 + 批 3 探针 11 + 验收回放 11 = 51 次调用，94,952+52,798 tokens，全部 completed（complete_with_config 逐 attempt 计费，O2 口径费用未知）。
+- 2026-11-08（轮 6，DONE_AWAITING_REVIEW 复核段：用户裁决五项待决策）：**三项裁决落地，两项状态更新**。①C2 批量生成=不做（关闭）；②E4=暂不开展（关闭）；③分歧②=等价成立（用户裁定两类替代问法都是好问题）——judge 提示词补"替代方案按目的判定"规则，重放 S4 judge 仍 partial（如实记），按用户语义权威覆盖样本判类为 correct（owner_ruling 注记+证据指针），顺带修正 S2 dont_know 过期期望类（incorrect→ungraded），report disputed_answers 0；④C6=用户已知悉协议，等真实时间；⑤第二份方法类 PDF=用户提名 4 本候选均属方法类（核对结论），等 PDF 路径或明示关闭。改动：`semantic_assessment.py` judge 提示一句 + `data/` 样本注记（git-ignored）+ 本文；离线快速回归 32 passed。phase 保持 `DONE_AWAITING_REVIEW`。真模型消耗：S4 重放 5 次逻辑调用（台账逐 attempt 计），O2 口径费用未知。
