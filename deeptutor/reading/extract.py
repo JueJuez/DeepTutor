@@ -30,7 +30,7 @@ more branch here without touching a single consumer.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 import logging
 from pathlib import Path
 import re
@@ -128,6 +128,18 @@ def _media_for_units(
     return tuple(items)
 
 
+def _strip_surrogates(value: str) -> str:
+    """Drop unpaired surrogate code points (U+D800–U+DFFF).
+
+    PDFs with broken embedded-font CMaps (this hit 《销售铁军》's bookmark
+    titles and some headings) yield lone surrogates that every later UTF-8
+    write rejects with ``surrogates not allowed``. They are mojibake
+    artifacts, not content: stripping them keeps such books ingestable
+    instead of crashing the extraction boundary.
+    """
+    return "".join(ch for ch in value if not 0xD800 <= ord(ch) <= 0xDFFF)
+
+
 def extract_material(path: str | Path, *, data: bytes | None = None) -> Extraction:
     """Cut *path* into units, dispatching on its extension.
 
@@ -164,6 +176,14 @@ def extract_material(path: str | Path, *, data: bytes | None = None) -> Extracti
             f"{source.name}: no readable text could be extracted. "
             "A scanned document needs OCR before it can be read here."
         )
+    extraction = replace(
+        extraction,
+        units=tuple(_strip_surrogates(unit) for unit in extraction.units),
+        title=_strip_surrogates(extraction.title),
+        outline=tuple(
+            replace(entry, title=_strip_surrogates(entry.title)) for entry in extraction.outline
+        ),
+    )
     return extraction
 
 
